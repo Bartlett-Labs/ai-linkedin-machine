@@ -1,0 +1,33 @@
+# Core application settings for the AI LinkedIn Machine.
+
+timezone: US/Central
+
+# Browser settings
+headless: true
+session_dir: ~/.ai-linkedin-machine/sessions
+
+# Google Sheet (the intelligence layer)
+# The actual Sheet ID should be set via GOOGLE_SHEET_ID env var
+google_sheet_id: ${GOOGLE_SHEET_ID}
+
+# LLM settings
+llm_model: gpt-4.1-mini
+llm_temperature: 0.7
+llm_max_tokens: 500
+
+# LinkedIn API (for API-based posting where supported)
+linkedin_client_id: ${LINKEDIN_CLIENT_ID}
+linkedin_client_secret: ${LINKEDIN_CLIENT_SECRET}
+
+# Content settings
+max_post_length: 3000
+max_comment_length: 1250
+
+# Logging
+log_level: INFO
+log_file: logs/ai-linkedin-machine.log
+
+# Paths
+queue_dir: queue/
+tracking_dir: tracking/linkedin/
+credentials_dir: credentials/

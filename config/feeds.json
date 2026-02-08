@@ -1,0 +1,44 @@
+{
+  "sources": [
+    {
+      "name": "Claude Blog",
+      "type": "rss",
+      "url": "https://www.anthropic.com/index.xml"
+    },
+    {
+      "name": "OpenAI Blog",
+      "type": "rss",
+      "url": "https://openai.com/blog/rss.xml"
+    },
+    {
+      "name": "GitHub Blog",
+      "type": "rss",
+      "url": "https://github.blog/feed/"
+    },
+    {
+      "name": "GitHub Copilot Changelog",
+      "type": "rss",
+      "url": "https://github.blog/changelog/feed/"
+    },
+    {
+      "name": "Google DeepMind",
+      "type": "rss",
+      "url": "https://deepmind.com/blog/feed/basic/"
+    },
+    {
+      "name": "HuggingFace Blog",
+      "type": "rss",
+      "url": "https://huggingface.co/blog/feed.xml"
+    },
+    {
+      "name": "TechCrunch AI",
+      "type": "rss",
+      "url": "https://techcrunch.com/category/artificial-intelligence/feed/"
+    },
+    {
+      "name": "Arxiv Machine Learning",
+      "type": "rss",
+      "url": "http://export.arxiv.org/rss/cs.LG"
+    }
+  ]
+}

@@ -1,8 +1,14 @@
 requests
 beautifulsoup4
+anthropic
 openai
-selenium
-webdriver-manager
+playwright
 schedule
 feedparser
-playwright
+python-dateutil
+pyyaml
+google-api-python-client
+google-auth
+google-auth-oauthlib
+google-auth-httplib2
+python-dotenv

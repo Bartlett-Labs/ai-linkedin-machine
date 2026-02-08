@@ -1,0 +1,27 @@
+# Rate limits per engagement phase.
+# The orchestrator reads the current phase from the Sheet's EngineControl tab
+# and applies the corresponding limits.
+
+stealth:
+  posts_per_week: 2
+  main_comments_per_day: 10
+  phantom_comments_per_post: 2
+  min_delay_between_actions_sec: 300
+  phantom_delay_after_post_min: [2, 15]
+  max_likes_per_day: 20
+
+announcement:
+  posts_per_day: 2
+  main_comments_per_day: 15
+  phantom_comments_per_post: 4
+  min_delay_between_actions_sec: 180
+  phantom_delay_after_post_min: [2, 10]
+  max_likes_per_day: 40
+
+authority:
+  posts_per_day: 2
+  main_comments_per_day: 12
+  phantom_comments_per_post: 6
+  min_delay_between_actions_sec: 120
+  phantom_delay_after_post_min: [2, 8]
+  max_likes_per_day: 50

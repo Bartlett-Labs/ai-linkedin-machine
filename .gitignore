@@ -5,3 +5,33 @@ __pycache__/
 venv/
 *.pyc
 .blr-installed.json
+
+# Credentials - NEVER commit
+credentials/
+*.json.bak
+service_account.json
+token.json
+
+# Session data (contains cookies/auth tokens)
+sessions/
+
+# Logs
+logs/
+*.log
+
+# Queue data
+queue/incoming_raw/
+queue/summaries/
+queue/posts/done/
+queue/posts/failed/
+queue/engagement/
+
+# Tracking data
+tracking/linkedin/*.md
+tracking/linkedin/leads.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
