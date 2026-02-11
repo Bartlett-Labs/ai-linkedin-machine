@@ -16,11 +16,12 @@ from browser.context_manager import PersonaContext
 from browser.linkedin_actions import create_post
 from engagement.tracker import log_post
 from summarization.safety_filter import violates_safety
+from utils import project_path
 
 logger = logging.getLogger(__name__)
 
-POSTS_DIR = "queue/posts/"
-PERSONAS_CONFIG = "config/personas.json"
+POSTS_DIR = project_path("queue", "posts")
+PERSONAS_CONFIG = project_path("config", "personas.json")
 
 
 def load_personas() -> list[dict]:

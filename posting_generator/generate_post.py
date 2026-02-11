@@ -1,9 +1,21 @@
+"""
+LinkedIn post generation from article summaries.
+
+Reads summaries from queue/summaries/, generates LinkedIn posts via LLM,
+runs safety checks, and saves to queue/posts/.
+"""
+
+import logging
 import os
+
 from llm.provider import generate as llm_generate
 from summarization.safety_filter import violates_safety
+from utils import project_path
 
-SUMMARIES_DIR = "queue/summaries/"
-POSTS_DIR = "queue/posts/"
+logger = logging.getLogger(__name__)
+
+SUMMARIES_DIR = project_path("queue", "summaries")
+POSTS_DIR = project_path("queue", "posts")
 
 SYSTEM_PROMPT = """You are a LinkedIn content creator for a Demand Planner who builds AI automation tools.
 Your posts should be professional, insightful, and position the author as a practitioner, not a guru.
@@ -37,12 +49,12 @@ def generate_post(summary_path):
     )
 
     if not post:
-        print(f"[!] All LLM providers failed for {summary_path}")
+        logger.error("All LLM providers failed for %s", summary_path)
         return None
 
     # Safety check before saving
     if violates_safety(post):
-        print(f"[!] Post blocked by safety filter: {summary_path}")
+        logger.warning("Post blocked by safety filter: %s", summary_path)
         return None
 
     # Save post
@@ -53,13 +65,13 @@ def generate_post(summary_path):
     with open(post_path, "w") as f:
         f.write(post)
 
-    print(f"[+] Generated post -> {post_path}")
+    logger.info("Generated post -> %s", post_path)
     return post_path
 
 
 def run_all():
     if not os.path.exists(SUMMARIES_DIR):
-        print(f"[!] No summaries directory: {SUMMARIES_DIR}")
+        logger.warning("No summaries directory: %s", SUMMARIES_DIR)
         return
     for file in os.listdir(SUMMARIES_DIR):
         if file.endswith(".md"):
@@ -67,4 +79,5 @@ def run_all():
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     run_all()

@@ -1,11 +1,25 @@
-import os, json, datetime
+"""
+Article summarization pipeline.
+
+Reads articles from queue/incoming_raw/, summarizes via LLM,
+runs safety checks, and writes to queue/summaries/.
+"""
+
+import json
+import logging
+import os
+from pathlib import Path
+
 from summarization.safety_filter import violates_safety
 from llm.provider import summarize as llm_summarize, generate as llm_generate
+from utils import project_path
 
-RAW_DIR = "queue/incoming_raw/"
-OUT_DIR = "queue/summaries/"
-PROMPT_PATH = "summarization/prompt_templates/default.txt"
-SAFETY_PROMPT_PATH = "summarization/prompt_templates/employer_neutral.txt"
+logger = logging.getLogger(__name__)
+
+RAW_DIR = project_path("queue", "incoming_raw")
+OUT_DIR = project_path("queue", "summaries")
+PROMPT_PATH = project_path("summarization", "prompt_templates", "default.txt")
+SAFETY_PROMPT_PATH = project_path("summarization", "prompt_templates", "employer_neutral.txt")
 
 
 def load_prompt():
@@ -25,11 +39,11 @@ def summarize_article(article_path):
     article_text = data.get("summary_raw", "")
     prompt_template = load_prompt()
 
-    # PRIMARY SUMMARY PASS (Claude → OpenAI fallback)
+    # PRIMARY SUMMARY PASS (Claude -> OpenAI fallback)
     text = llm_summarize(article_text, prompt_template)
 
     if not text:
-        print(f"[!] All LLM providers failed for {article_path}")
+        logger.error("All LLM providers failed for %s", article_path)
         return
 
     # SAFETY PASS
@@ -52,12 +66,12 @@ def summarize_article(article_path):
     with open(out_path, "w") as f:
         f.write(text)
 
-    print(f"[+] Summarized -> {out_path}")
+    logger.info("Summarized -> %s", out_path)
 
 
 def run_all():
     if not os.path.exists(RAW_DIR):
-        print(f"[!] No raw articles directory: {RAW_DIR}")
+        logger.warning("No raw articles directory: %s", RAW_DIR)
         return
     for file in os.listdir(RAW_DIR):
         if file.endswith(".json"):
@@ -65,4 +79,5 @@ def run_all():
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     run_all()

@@ -68,11 +68,19 @@ _sheet_terms: Optional[list[str]] = None
 
 
 def load_sheet_terms(sheets_client) -> None:
-    """Load additional safety terms from the Google Sheet SafetyTerms tab."""
+    """Load additional safety terms from the Google Sheet SafetyTerms tab.
+
+    Sheet columns: Term, Response (where Response is BLOCK or MASK).
+    Both BLOCK and MASK terms are filtered — MASK terms don't have
+    masking logic yet, so they are blocked for safety.
+    """
     global _sheet_terms
     try:
         terms = sheets_client.get_safety_terms()
-        _sheet_terms = [t.term.lower() for t in terms if t.severity == "BLOCK"]
+        _sheet_terms = [
+            t.term.lower() for t in terms
+            if t.response.upper() in ("BLOCK", "MASK")
+        ]
         logger.info("Loaded %d safety terms from Sheet", len(_sheet_terms))
     except Exception as e:
         logger.warning("Could not load safety terms from Sheet: %s", e)

@@ -62,7 +62,8 @@ fi
 
 # 6. Verify setup
 echo "[6/6] Verifying setup..."
-python -c "import playwright; print('  Playwright:', playwright.__version__)"
+python -c "import playwright.async_api; print('  Playwright: OK')"
+python -c "from anthropic import AnthropicBedrock; print('  Anthropic SDK (Bedrock): OK')"
 python -c "import openai; print('  OpenAI SDK: OK')"
 python -c "import googleapiclient; print('  Google API: OK')"
 python -c "import yaml; print('  PyYAML: OK')"

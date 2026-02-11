@@ -10,9 +10,11 @@ import os
 import re
 from pathlib import Path
 
+from utils import project_path
+
 logger = logging.getLogger(__name__)
 
-POSTS_DIR = "queue/posts/"
+POSTS_DIR = project_path("queue", "posts")
 SIMILARITY_THRESHOLD = 0.55  # 55% token overlap = likely duplicate
 
 

@@ -38,9 +38,15 @@ Safety is enforced in three places:
 
 ## LLM Configuration
 
-- **Primary:** Claude Opus 4.6 (`claude-opus-4-6-20250610`) via Anthropic API
-- **Fallback:** GPT-5.2 via OpenAI API (only used if Anthropic is unavailable)
+- **Primary:** Claude Opus 4.6 via AWS Bedrock (`us.anthropic.claude-opus-4-6-20250610-v1:0`)
+- **Also supports:** Direct Anthropic API (`claude-opus-4-6-20250610`) if Bedrock isn't available
+- **Fallback:** GPT-5.2 via OpenAI API (only used if Anthropic/Bedrock is unavailable)
 - **Last resort:** Template strings from the Sheet's CommentTemplates tab
+
+The provider auto-detects auth method in priority order:
+1. **Bedrock proxy** — If `ANTHROPIC_BEDROCK_BASE_URL` + `ANTHROPIC_AUTH_TOKEN` are set, uses a standard `Anthropic` client pointed at the proxy URL with the auth token. This is the current production setup (Anker's ai-router gateway). Model IDs use `global.` prefix.
+2. **Standard AWS Bedrock** — If `AWS_REGION` is set, uses `AnthropicBedrock` with standard boto3 credential chain. Model IDs use `us.` prefix.
+3. **Direct Anthropic API** — If `ANTHROPIC_API_KEY` is set, uses standard `Anthropic` client. Model IDs use bare format.
 
 All LLM calls go through `llm/provider.py`. Do not call Anthropic or OpenAI APIs directly from other modules. The provider handles the fallback chain and safety preamble injection.
 
@@ -48,19 +54,24 @@ All LLM calls go through `llm/provider.py`. Do not call Anthropic or OpenAI APIs
 
 ## Personas
 
-Defined in `config/personas.json`. 7 personas total:
+Defined in `config/personas.json`. 7 personas total. Each phantom persona has: `display_name`, `linkedin_url`, `location`, `active_hours` (timezone-aware), `voice` object (tone, vocabulary, signature_phrases, comment_length, avoids), `engagement_rules` (triggers, debates_with, agrees_with), and an enhanced `system_prompt` encoding full backstory and voice rules.
 
-| Name | Role | Engagement Style |
-|------|------|-----------------|
-| **MainUser** | Demand Planner / AI practitioner | Posts content, comments on targets (7-12/day), replies to engagement |
-| The Visionary Advisor | Startup advisor | Big-picture strategic takes, forward-looking |
-| The Deep Learner | AI researcher | Academic, technical depth, cautious about ethics |
-| The Skeptical Senior Dev | Pragmatic engineer | Contrarian, anti-hype, focused on technical debt |
-| The Corporate Compliance Officer | Legal/risk | Formal, risk-averse, GDPR/privacy focused |
-| The Creative Tinkerer | Hobbyist dev | Enthusiastic, informal, DIY workarounds |
-| The ROI-Driven Manager | Operations manager | Bottom-line focused, cost/time efficiency |
+| Name | LinkedIn Name | Location | Role | Voice |
+|------|--------------|----------|------|-------|
+| **MainUser** | Kyle Bartlett | — | Demand Planner / AI practitioner | Direct, technical, practical |
+| The Visionary Advisor | **Marcus Chen** | Austin, TX | Fractional CTO, startup advisor | Strategic, forward-looking, punchy |
+| The Deep Learner | **Dr. Priya Nair** | Boston, MA | AI research scientist (PhD) | Academic, precise, questioning |
+| The Skeptical Senior Dev | **Jake Morrison** | Denver, CO | Staff engineer, 16yr production exp | Terse, contrarian, dry humor |
+| The Corporate Compliance Officer | **Rebecca Torres, CIPP/US** | Chicago, IL | Dir. AI Governance, Fortune 500 | Formal, risk-aware, structured |
+| The Creative Tinkerer | **Alex Kim** | Portland, OR | Indie dev, self-taught maker | Casual, enthusiastic, anecdotal |
+| The ROI-Driven Manager | **David Okafor** | Dallas, TX | Dir. Operations, manufacturing | ROI-focused, no-nonsense |
 
-Phantom personas (all except MainUser) engage on MainUser's posts after a randomized 2-15 minute delay to boost reach during the golden hour.
+Phantom personas (all except MainUser) engage on MainUser's posts after a randomized 2-15 minute delay to boost reach during the golden hour. They create conversation threads with natural-looking debate (e.g., Marcus vs. Jake on practicality, Priya asking research questions, David demanding ROI numbers).
+
+**Key persona docs:**
+- `config/personas.json` — machine-readable definitions with system prompts, voice rules, engagement triggers
+- `docs/PERSONA_DOSSIERS.md` — full LinkedIn profile builds (headlines, About sections, experience, skills, setup checklist)
+- `docs/PHANTOM_SYSTEM_GUIDE.md` — human-readable usage guide with interaction matrix, setup instructions, safety rules
 
 ---
 
@@ -83,11 +94,15 @@ ai-linkedin-machine/
 │                                  detects CAPTCHAs/verification. create_post() has retry_async.
 │
 ├── sheets/
-│   ├── client.py                # SheetsClient: Google Sheets API. Methods for all 10 tabs.
+│   ├── client.py                # SheetsClient: Google Sheets API. Methods for all 11 tabs.
 │   │                              get_ready_items(), update_queue_status(), get_comment_targets(),
-│   │                              get_safety_terms(), get_engine_control(), log() -> SystemLog.
+│   │                              get_comment_templates(), get_reply_rules(), get_safety_terms(),
+│   │                              get_schedule_configs(), get_schedule_for_phase(),
+│   │                              get_engine_control(), get_content_bank(), get_repost_bank(),
+│   │                              log() -> SystemLog. ScheduleControl overrides rate_limits.yaml.
 │   └── models.py                # Dataclasses: QueueItem, CommentTarget, CommentTemplate,
-│                                  ReplyRule, SafetyTerm, ScheduleWindow, EngineControl.
+│                                  ReplyRule, SafetyTerm, ScheduleConfig, EngineControl,
+│                                  SystemLogEntry, ContentBankItem, RepostBankItem.
 │                                  Enums: QueueStatus, Phase, EngineMode, ReplyAction.
 │
 ├── scheduling/
@@ -162,8 +177,13 @@ ai-linkedin-machine/
 │   └── dedup.py                 # is_duplicate(): Jaccard token similarity, 55% threshold.
 │                                  deduplicate_queue(): Removes duplicates from queue/posts/.
 │
+├── docs/
+│   ├── PERSONA_DOSSIERS.md      # Full LinkedIn profile builds for all 6 phantom personas
+│   └── PHANTOM_SYSTEM_GUIDE.md  # Human-readable usage guide for phantom engagement system
+│
 ├── config/
-│   ├── personas.json            # 7 persona definitions with system prompts, session dirs, behavior
+│   ├── personas.json            # 7 persona definitions with system prompts, voice, engagement rules,
+│   │                              active_hours, locations. Rich data for phantom personas.
 │   ├── rate_limits.yaml         # Phase-based limits: stealth/announcement/authority
 │   ├── feeds.json               # RSS feed URLs
 │   └── app_config.yaml          # Core settings: timezone (US/Central), paths, LLM config
@@ -195,18 +215,19 @@ Defined in `config/rate_limits.yaml`. Current phase is read from Sheet EngineCon
 
 ## Google Sheet Tabs
 
-| Tab | Purpose | Read/Write |
-|-----|---------|------------|
-| OutboundQueue | Post drafts with status (READY/DONE/FAILED/SKIPPED) | Read + Write |
-| EngineControl | Phase, mode (LIVE/DRY_RUN/PAUSED), feature toggles | Read |
-| CommentTargets | LinkedIn profiles to comment on (URL, category, priority) | Read |
-| CommentTemplates | Fallback comment templates by style | Read |
-| ReplyRules | Triggers for auto-reply (keyword matching, BLOCK/REPLY actions) | Read |
-| SafetyTerms | Dynamic blocked phrases (additions don't require code changes) | Read |
-| ScheduleControl | Posting windows (day, start time, end time) | Read |
-| SystemLog | Every action logged: timestamp, action type, persona, status, details | Write |
-| ContentBank | Source content library | Read |
-| RepostBank | Repost candidates | Read |
+| Tab | Columns | Purpose | Read/Write |
+|-----|---------|---------|------------|
+| SystemLog | Timestamp, Module, Action, Target, Result, Safety, Notes | Every action logged with module derivation and safety status | Write |
+| OutboundQueue | Timestamp, ActionType, TargetName, TargetURL, DraftText, Status, Notes, ExecuteLink, CopyReady | Post/comment drafts with status (READY/DONE/FAILED/SKIPPED) | Read + Write |
+| EngineControl | Key-value pairs: Mode, Phase, MainUserPosting, PhantomEngagement, Commenting, Replying, LastRun | Phase, mode (LIVE/DryRun/Paused), feature toggles | Read + Write |
+| Credentials | Client ID, Client Secret | LinkedIn API credentials (reference only, code uses .env) | Not read |
+| ScheduleControl | Mode, PostsPerWeek, CommentsPerDay, PhantomComments | Per-phase rate limits. Overrides config/rate_limits.yaml | Read |
+| SafetyTerms | Term, Response | Dynamic blocked phrases (Response: BLOCK or MASK) | Read |
+| ReplyRules | ConditionType, Trigger, Action, Notes | Keyword triggers for auto-reply (BLOCK/REPLY/IGNORE) | Read |
+| CommentTemplates | ID, TemplateText, Tone, Category, SafetyFlag, ExampleUse, **Persona** | Fallback comment templates by tone/category. 102 MainUser + 90 persona-specific (15 per phantom). Persona column filters by persona name. | Read |
+| CommentTargets | ID, Name, LinkedInURL, Category, Priority, LastCommentDate, Notes | LinkedIn profiles to comment on | Read |
+| RepostBank | ID, SourceName, SourceURL, Summary, CommentaryPrompt, SafetyFlag, LastUsed, Notes | Repost candidates with commentary prompts | Read |
+| ContentBank | ID, Category, PostType, Draft, SafetyFlag, Ready, LastUsed, Notes | Source content library with ready status. Categories: ai_automation, ops_efficiency, personal_growth, builder_stories, **phantom_engagement** (29 multi-persona conversation threads) | Read |
 
 ---
 
@@ -227,11 +248,16 @@ Defined in `config/rate_limits.yaml`. Current phase is read from Sheet EngineCon
 
 | Variable | Required | Purpose |
 |----------|----------|---------|
-| `ANTHROPIC_API_KEY` | Yes | Claude Opus 4.6 (primary LLM) |
+| `ANTHROPIC_BEDROCK_BASE_URL` | Yes* | Bedrock proxy URL (e.g. `https://ai-router.anker-in.com/bedrock`). *Required for proxy auth |
+| `ANTHROPIC_AUTH_TOKEN` | Yes* | Auth token for Bedrock proxy. *Required for proxy auth |
+| `AWS_REGION` | No | AWS region for standard Bedrock (alternative to proxy) |
+| `AWS_ACCESS_KEY_ID` | No | AWS credentials for standard Bedrock |
+| `AWS_SECRET_ACCESS_KEY` | No | AWS credentials for standard Bedrock |
+| `ANTHROPIC_API_KEY` | No | Direct Anthropic API key (alternative to any Bedrock) |
 | `GOOGLE_SHEET_ID` | Yes | Sheet ID from URL |
 | `GOOGLE_CREDENTIALS_PATH` | Yes | Path to service account JSON |
 | `OPENAI_API_KEY` | No | GPT-5.2 fallback |
-| `CLAUDE_MODEL` | No | Override default model (default: `claude-opus-4-6-20250610`) |
+| `CLAUDE_MODEL` | No | Override model (proxy default: `global.anthropic.claude-opus-4-6-v1:0`, direct default: `claude-opus-4-6-20250610`) |
 | `OPENAI_MODEL` | No | Override fallback model (default: `gpt-5.2`) |
 | `LINKEDIN_CLIENT_ID` | No | LinkedIn API (for API-based posting) |
 | `LINKEDIN_CLIENT_SECRET` | No | LinkedIn API |
@@ -269,6 +295,14 @@ Defined in `config/rate_limits.yaml`. Current phase is read from Sheet EngineCon
 ### Model Updates
 - Primary LLM changed from OpenAI to Claude Opus 4.6 (`claude-opus-4-6-20250610`)
 - Fallback LLM updated to GPT-5.2
+
+### Phantom Persona System (2026-02-11)
+- **Persona Dossiers:** Created `docs/PERSONA_DOSSIERS.md` — full LinkedIn profile builds for all 6 phantom personas (Marcus Chen, Dr. Priya Nair, Jake Morrison, Rebecca Torres, Alex Kim, David Okafor). Includes headlines, About sections, experience entries, skills lists, who-to-follow lists, voice guides, example comments, interaction matrix, account warming checklist, and browser session setup.
+- **Rich personas.json:** Expanded `config/personas.json` with `display_name`, `linkedin_url`, `location`, `active_hours` (timezone-aware), `voice` object (tone, vocabulary, signature_phrases, comment_length, avoids), `engagement_rules` (trigger topics, debates_with, agrees_with), and enhanced `system_prompt` encoding full backstory and voice rules per persona.
+- **Persona-specific templates:** Added 90 new CommentTemplates (15 per phantom) to the spreadsheet generator (`/tmp/gen_linkedin_spreadsheet.py`). Each persona's templates are written in their distinct voice. Added `Persona` column (column G) to the CommentTemplates tab. IDs: P001-P090.
+- **Phantom engagement content:** Added 29 `phantom_engagement` entries to ContentBank — pre-written multi-persona conversation threads organized by post topic (AI, ops, Python, growth, safety, content pipeline, learning). Each thread contains 3 persona comments creating natural debate.
+- **Usage guide:** Created `docs/PHANTOM_SYSTEM_GUIDE.md` — human-readable usage guide covering setup, interaction matrix, modification instructions, safety rules, and current counts.
+- **Spreadsheet regenerated:** LinkedIn Stealth Engine.xlsx now has 858 total data rows (CommentTemplates: 192, ContentBank: 178, CommentTargets: 180, RepostBank: 146, etc.)
 
 ---
 

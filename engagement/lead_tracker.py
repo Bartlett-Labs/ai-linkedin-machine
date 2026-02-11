@@ -13,9 +13,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+from utils import project_path
+
 logger = logging.getLogger(__name__)
 
-LEADS_FILE = "tracking/linkedin/leads.json"
+LEADS_FILE = project_path("tracking", "linkedin", "leads.json")
 
 # Job titles that indicate a potential lead
 LEAD_TITLES = [

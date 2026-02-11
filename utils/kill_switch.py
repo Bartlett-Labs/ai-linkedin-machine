@@ -13,9 +13,11 @@ Usage:
 import logging
 import os
 
+from utils import project_path
+
 logger = logging.getLogger(__name__)
 
-STOP_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "STOP")
+STOP_FILE = project_path("STOP")
 
 
 def check_kill_switch() -> bool:

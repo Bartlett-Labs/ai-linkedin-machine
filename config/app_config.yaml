@@ -11,7 +11,13 @@ session_dir: ~/.ai-linkedin-machine/sessions
 google_sheet_id: ${GOOGLE_SHEET_ID}
 
 # LLM settings
-llm_model: gpt-4.1-mini
+# Primary: Claude Opus 4.6 via Bedrock proxy or direct API (see llm/provider.py)
+# Fallback: OpenAI GPT-5.2 (only used if Anthropic/Bedrock is unavailable)
+# Model IDs are managed in llm/provider.py and can be overridden via env vars:
+#   CLAUDE_MODEL (Bedrock default: global.anthropic.claude-opus-4-6-v1:0)
+#   OPENAI_MODEL (default: gpt-5.2)
+llm_primary: claude-opus-4-6
+llm_fallback: gpt-5.2
 llm_temperature: 0.7
 llm_max_tokens: 500
 

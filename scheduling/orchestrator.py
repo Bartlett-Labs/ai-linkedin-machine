@@ -32,15 +32,16 @@ from engagement.commenter import run_commenter
 from engagement.replier import run_replier
 from engagement.tracker import log_post, log_like
 from sheets.client import SheetsClient
-from sheets.models import QueueStatus, EngineMode, Phase
+from sheets.models import QueueStatus, EngineMode, Phase, ScheduleConfig
 from summarization.safety_filter import violates_safety, load_sheet_terms
+from utils import project_path
 from utils.kill_switch import check_kill_switch, activate_kill_switch
 from utils.dedup import deduplicate_queue
 
 logger = logging.getLogger(__name__)
 
-RATE_LIMITS_PATH = "config/rate_limits.yaml"
-PERSONAS_CONFIG = "config/personas.json"
+RATE_LIMITS_PATH = project_path("config", "rate_limits.yaml")
+PERSONAS_CONFIG = project_path("config", "personas.json")
 
 
 def _load_rate_limits() -> dict:
@@ -125,8 +126,18 @@ async def run_orchestrator(
     if dry_run:
         logger.info("Running in DRY RUN mode")
 
-    # 2. Load rate limits for current phase
+    # 2. Load rate limits for current phase (YAML baseline, sheet overrides)
     rate_limits = _load_rate_limits().get(engine.phase.value, {})
+
+    # Override with ScheduleControl from sheet if available
+    try:
+        schedule_config = sheets_client.get_schedule_for_phase(engine.phase)
+        if schedule_config:
+            rate_limits = _merge_schedule_config(rate_limits, schedule_config)
+            logger.info("Rate limits overridden by ScheduleControl sheet: %s", schedule_config.mode)
+    except Exception as e:
+        logger.warning("Could not load ScheduleControl from sheet, using YAML defaults: %s", e)
+
     logger.info("Phase: %s, Mode: %s", engine.phase.value, engine.mode.value)
 
     sheets_client.log(
@@ -241,11 +252,18 @@ async def _execute_queue_posts(
     else:
         max_posts = 1
 
-    items = sheets_client.get_ready_items(limit=max_posts)
+    all_items = sheets_client.get_ready_items(limit=max_posts + 20)
+    # Only process actual posts, not comment drafts
+    items = [
+        i for i in all_items
+        if i.content_type.upper() not in ("COMMENT_DRAFT", "COMMENT", "REPLY_DRAFT")
+    ]
     if not items:
-        logger.info("No READY items in OutboundQueue")
+        logger.info("No READY post items in OutboundQueue (skipped %d comment drafts)",
+                     len(all_items) - len(items))
         return 0
 
+    items = items[:max_posts]
     posts_made = 0
     from browser.context_manager import PersonaContext
 
@@ -380,7 +398,7 @@ async def _run_phantom_engagement(
                     )
                 else:
                     await like_post(page, 0)
-                    log_like(phantom["name"], posts[0].get("urn", ""), posts[0]["author"])
+                    log_like(phantom["name"], "feed", posts[0]["author"])
 
                 # Comment
                 comment_results = await run_commenter(
@@ -408,3 +426,26 @@ async def _run_phantom_engagement(
             )
 
     return actions
+
+
+def _merge_schedule_config(rate_limits: dict, config: ScheduleConfig) -> dict:
+    """Merge ScheduleControl sheet values into YAML rate limits.
+
+    Sheet values take priority over YAML values. This allows you to
+    control exact posting quantities, comment ranges, delays, and like
+    limits from the Google Sheet without editing config/rate_limits.yaml.
+    """
+    merged = dict(rate_limits)
+    merged["posts_per_week"] = config.posts_per_week
+    # Derive daily post cap: spread across 5 weekdays, minimum 1
+    merged["posts_per_day"] = max(1, round(config.posts_per_week / 5))
+    # Pick a random comment target within the sheet-defined range
+    merged["main_comments_per_day"] = random.randint(
+        config.comments_per_day_min, config.comments_per_day_max
+    )
+    merged["phantom_comments_per_post"] = random.randint(
+        config.phantom_comments_min, config.phantom_comments_max
+    )
+    merged["min_delay_between_actions_sec"] = config.min_delay_sec
+    merged["max_likes_per_day"] = config.max_likes_per_day
+    return merged

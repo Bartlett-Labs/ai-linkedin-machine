@@ -2,17 +2,28 @@
 Common LinkedIn DOM interactions via Playwright.
 
 Handles navigation, posting, commenting, liking, and feed scrolling.
-Selectors are centralized here so DOM changes only need one update.
+
+SELECTOR STRATEGY (2025+):
+LinkedIn uses hashed/obfuscated CSS class names (e.g., "_78a9d91d") that
+change frequently. We rely on stable semantic attributes instead:
+  - ARIA roles: role="listitem", role="textbox"
+  - ARIA labels: aria-label="Reaction button state: ..."
+  - Button text content: "Like", "Comment", "Repost", "Send"
+  - Data attributes: data-view-name="feed-full-update"
+  - Semantic HTML: <time>, <a href="/in/...">
+
+DO NOT use CSS class names as selectors — they will break.
 """
 
 import asyncio
 import logging
 import random
+import re
 from typing import Optional
 
-from playwright.async_api import Page, TimeoutError as PlaywrightTimeout
+from playwright.async_api import Page, Locator, TimeoutError as PlaywrightTimeout
 
-from browser.human_typing import human_type_into_contenteditable
+from browser.human_typing import human_type_into_element
 from utils.retry import retry_async
 
 logger = logging.getLogger(__name__)
@@ -66,35 +77,66 @@ async def check_for_challenge(page: Page) -> bool:
 
     return False
 
+
 # ---------------------------------------------------------------------------
-# Selectors (centralized for easy updates when LinkedIn changes DOM)
+# Selectors — use semantic attributes, NOT CSS class names.
+# LinkedIn obfuscates class names and changes them without notice.
+#
+# Last verified: 2026-02-08 via scripts/debug_feed.py
 # ---------------------------------------------------------------------------
 SEL = {
-    # Feed
-    "feed_post": "div.feed-shared-update-v2",
-    "post_text": "div.feed-shared-text",
-    "post_author": "span.feed-shared-actor__name",
+    # Feed posts
+    "feed_post": "div[role='listitem']",
+    "post_update": "[data-view-name='feed-full-update']",
     "post_time": "time",
-    "post_urn": "data-urn",
-    # Start post dialog
-    "start_post_button": "button.share-box-feed-entry__trigger",
-    "post_editor": "div.ql-editor[role='textbox']",
-    "post_submit": "button.share-actions__primary-action",
-    # Comment
-    "comment_button": "button[aria-label*='Comment']",
-    "comment_editor": "div.ql-editor[role='textbox']",
-    "comment_submit": "button[aria-label*='Post comment'], button.comments-comment-box__submit-button",
-    # Like
-    "like_button": "button[aria-label*='Like']",
-    # Reactions on own posts
-    "comment_items": "article.comments-comment-item",
-    "comment_author": "span.comments-post-meta__name-text",
-    "comment_text": "span.comments-comment-item__main-content",
+    "post_author_link": "a[href*='/in/']",
+
+    # Post editor (modal that opens after clicking "Start a post")
+    "post_editor": "div[role='textbox']",
+
+    # Comment editor (appears inside a post after clicking Comment)
+    "comment_editor": "div[role='textbox']",
 }
 
 LINKEDIN_FEED_URL = "https://www.linkedin.com/feed/"
 LINKEDIN_PROFILE_URL = "https://www.linkedin.com/in/{slug}/recent-activity/all/"
 
+# Button text labels used with Playwright locator text matching.
+# These are the visible text on LinkedIn action buttons (not CSS selectors).
+BTN_TEXT = {
+    "like": "Like",
+    "comment": "Comment",
+    "repost": "Repost",
+    "send": "Send",
+}
+
+
+# ---------------------------------------------------------------------------
+# Locator helpers — find buttons by visible text or aria-label
+# ---------------------------------------------------------------------------
+
+def _like_button(post: Locator) -> Locator:
+    """Locate the Like/reaction button inside a post.
+
+    LinkedIn uses aria-label="Reaction button state: no reaction" for unliked
+    and aria-label containing "liked" or "unlike" for already-liked posts.
+    """
+    return post.locator("button[aria-label*='Reaction button']")
+
+
+def _comment_button(post: Locator) -> Locator:
+    """Locate the Comment button inside a post."""
+    return post.locator("button").filter(has_text="Comment").first
+
+
+def _repost_button(post: Locator) -> Locator:
+    """Locate the Repost button inside a post."""
+    return post.locator("button").filter(has_text="Repost").first
+
+
+# ---------------------------------------------------------------------------
+# Navigation
+# ---------------------------------------------------------------------------
 
 async def navigate_to_feed(page: Page) -> None:
     """Navigate to the LinkedIn home feed."""
@@ -127,31 +169,73 @@ async def scroll_feed(page: Page, scrolls: int = 3) -> None:
         await _random_pause(1.5, 3.0)
 
 
+# ---------------------------------------------------------------------------
+# Feed post extraction
+# ---------------------------------------------------------------------------
+
 async def get_feed_posts(page: Page, max_posts: int = 10) -> list[dict]:
     """Extract visible posts from the feed.
 
-    Returns a list of dicts with keys: urn, text, author, timestamp, element_index.
+    Returns a list of dicts with keys: text, author, timestamp, element_index.
+    Skips promoted posts automatically.
     """
     posts = []
-    elements = await page.query_selector_all(SEL["feed_post"])
+    feed_posts = page.locator(SEL["feed_post"])
+    count = await feed_posts.count()
 
-    for idx, el in enumerate(elements[:max_posts]):
+    for idx in range(min(count, max_posts)):
         try:
-            text_el = await el.query_selector(SEL["post_text"])
-            text = await text_el.inner_text() if text_el else ""
+            post = feed_posts.nth(idx)
 
-            author_el = await el.query_selector(SEL["post_author"])
-            author = await author_el.inner_text() if author_el else "Unknown"
+            # Get full text of the post
+            full_text = await post.inner_text()
 
-            time_el = await el.query_selector(SEL["post_time"])
-            timestamp = await time_el.get_attribute("datetime") if time_el else None
+            # Skip promoted posts
+            if "Promoted" in full_text[:300]:
+                continue
 
-            urn = await el.get_attribute(SEL["post_urn"]) or ""
+            # Extract author from profile links — skip the first one
+            # (it wraps the profile image and has empty text)
+            author = "Unknown"
+            author_links = post.locator(SEL["post_author_link"])
+            link_count = await author_links.count()
+            for li in range(link_count):
+                link_text = (await author_links.nth(li).inner_text()).strip()
+                if link_text:
+                    author = link_text.split("\n")[0].strip()
+                    break
+
+            # Extract timestamp
+            timestamp = None
+            time_el = post.locator(SEL["post_time"])
+            if await time_el.count() > 0:
+                timestamp = await time_el.first.get_attribute("datetime")
+
+            # Extract post body text by removing UI chrome lines
+            lines = full_text.strip().split("\n")
+            # Filter out button labels, reaction counts, and UI elements
+            noise = {"Like", "Comment", "Repost", "Send", "… more",
+                     "Feed post", "Follow", "Promoted"}
+            body_lines = []
+            for l in lines:
+                s = l.strip()
+                if not s:
+                    continue
+                if s in noise:
+                    continue
+                # Skip reaction/comment/repost count lines like "62 reactions"
+                if re.match(r'^\d+\s*(reactions?|comments?|reposts?|likes?)$', s, re.I):
+                    continue
+                # Skip standalone numbers (engagement counts)
+                if re.match(r'^\d+$', s):
+                    continue
+                body_lines.append(s)
+            # Skip the first few lines (author name, title, connection, timestamp)
+            body_text = "\n".join(body_lines[3:]) if len(body_lines) > 3 else "\n".join(body_lines)
 
             posts.append({
-                "urn": urn,
-                "text": text.strip(),
-                "author": author.strip(),
+                "text": body_text[:2000],
+                "author": author,
                 "timestamp": timestamp,
                 "element_index": idx,
             })
@@ -162,26 +246,89 @@ async def get_feed_posts(page: Page, max_posts: int = 10) -> list[dict]:
     return posts
 
 
-async def create_post(page: Page, text: str) -> bool:
-    """Create a new LinkedIn post using the feed editor.
+# ---------------------------------------------------------------------------
+# Post creation
+# ---------------------------------------------------------------------------
 
-    Returns True on success, False on failure. Retries up to 2 times
-    on transient failures (not on challenges).
+async def create_post(page: Page, text: str) -> bool:
+    """Create a new LinkedIn post.
+
+    Opens the post editor by clicking the "Start a post" trigger at the
+    top of the feed, types the content with human-like timing, and submits.
+
+    Uses multiple fallback strategies to find the trigger element since
+    LinkedIn changes its DOM structure.
+
+    Returns True on success, False on failure.
     """
     async def _attempt():
         await navigate_to_feed(page)
 
-        # Click "Start a post"
-        await page.click(SEL["start_post_button"])
-        await page.wait_for_selector(SEL["post_editor"], timeout=10_000)
+        # Try multiple strategies to open the post editor
+        started = False
+
+        # Strategy 1: Button with "Start a post" text
+        if not started:
+            btn = page.get_by_role("button", name="Start a post")
+            if await btn.count() > 0:
+                await btn.first.click()
+                started = True
+
+        # Strategy 2: Any clickable element with "Start a post" text
+        if not started:
+            trigger = page.locator("button, div[role='button'], a, span[role='button']").filter(
+                has_text="Start a post"
+            )
+            if await trigger.count() > 0:
+                await trigger.first.click()
+                started = True
+
+        # Strategy 3: Placeholder text in a text-like element
+        if not started:
+            trigger = page.locator(
+                "[data-placeholder*='Start a post'], "
+                "[aria-placeholder*='Start a post'], "
+                "[placeholder*='Start a post']"
+            )
+            if await trigger.count() > 0:
+                await trigger.first.click()
+                started = True
+
+        # Strategy 4: "What do you want to talk about" text
+        if not started:
+            trigger = page.locator("button, div[role='button'], a").filter(
+                has_text="What do you want to talk about"
+            )
+            if await trigger.count() > 0:
+                await trigger.first.click()
+                started = True
+
+        # Strategy 5: Share box feed entry (data-view-name based)
+        if not started:
+            trigger = page.locator("[data-view-name*='share-box'], [data-view-name*='new-update']")
+            if await trigger.count() > 0:
+                await trigger.first.click()
+                started = True
+
+        if not started:
+            logger.error("Could not find 'Start a post' trigger on the feed page")
+            raise Exception("Start a post trigger not found")
+
+        # Wait for the post editor modal
+        editor = page.locator(SEL["post_editor"]).first
+        await editor.wait_for(timeout=10_000)
         await _random_pause(0.8, 1.5)
 
-        # Type post content
-        await human_type_into_contenteditable(page, SEL["post_editor"], text)
+        # Type post content with human-like timing
+        await human_type_into_element(page, editor, text)
         await _random_pause(1.0, 2.0)
 
-        # Submit
-        await page.click(SEL["post_submit"])
+        # Submit — look for a "Post" button (the submit action in the modal)
+        submit = page.get_by_role("button", name="Post", exact=True)
+        if await submit.count() == 0:
+            # Fallback: last button with "Post" text (avoids matching "Repost")
+            submit = page.locator("button").filter(has_text="Post").last
+        await submit.click()
         await _random_pause(3.0, 5.0)
 
         logger.info("Post created successfully (%d chars)", len(text))
@@ -197,54 +344,62 @@ async def create_post(page: Page, text: str) -> bool:
         return False
 
 
+# ---------------------------------------------------------------------------
+# Comment on a post
+# ---------------------------------------------------------------------------
+
 async def comment_on_post(page: Page, post_index: int, comment_text: str) -> bool:
     """Comment on a post by its index in the current feed view.
+
+    Clicks the Comment button on the specified post, waits for the comment
+    editor to appear, types the comment with human-like timing, and submits.
 
     Returns True on success.
     """
     try:
-        posts = await page.query_selector_all(SEL["feed_post"])
-        if post_index >= len(posts):
-            logger.error("Post index %d out of range (%d posts)", post_index, len(posts))
+        feed_posts = page.locator(SEL["feed_post"])
+        count = await feed_posts.count()
+        if post_index >= count:
+            logger.error("Post index %d out of range (%d posts)", post_index, count)
             return False
 
-        post_el = posts[post_index]
+        post = feed_posts.nth(post_index)
 
         # Scroll post into view
-        await post_el.scroll_into_view_if_needed()
+        await post.scroll_into_view_if_needed()
         await _random_pause(0.5, 1.0)
 
-        # Click comment button
-        comment_btn = await post_el.query_selector(SEL["comment_button"])
-        if not comment_btn:
+        # Click comment button (identified by visible text "Comment")
+        comment_btn = _comment_button(post)
+        if await comment_btn.count() == 0:
             logger.error("Comment button not found on post %d", post_index)
             return False
         await comment_btn.click()
         await _random_pause(1.0, 2.0)
 
-        # Find the comment editor within this post's context
-        comment_box = await post_el.query_selector(SEL["comment_editor"])
-        if not comment_box:
-            logger.error("Comment editor not found on post %d", post_index)
-            return False
-
-        await comment_box.click()
-        await _random_pause(0.3, 0.6)
+        # Find the comment editor (textbox within this post's comment section)
+        comment_box = post.locator(SEL["comment_editor"]).first
+        await comment_box.wait_for(timeout=5_000)
 
         # Type the comment with human-like timing
-        await human_type_into_contenteditable(
-            page,
-            f"{SEL['feed_post']}:nth-of-type({post_index + 1}) {SEL['comment_editor']}",
-            comment_text,
-        )
+        await human_type_into_element(page, comment_box, comment_text)
         await _random_pause(0.8, 1.5)
 
         # Submit comment
-        submit_btn = await post_el.query_selector(SEL["comment_submit"])
-        if not submit_btn:
-            logger.error("Comment submit button not found on post %d", post_index)
-            return False
-        await submit_btn.click()
+        # LinkedIn's comment submit is typically a button with a paper-plane
+        # icon or text like "Post" / "Comment" within the comment area
+        submit = post.locator("button").filter(has_text="Post").last
+        if await submit.count() > 0:
+            await submit.click()
+        else:
+            # Fallback: look for submit button by aria-label
+            submit = post.locator("button[aria-label*='Post'], button[aria-label*='Submit']")
+            if await submit.count() > 0:
+                await submit.first.click()
+            else:
+                # Last resort: Ctrl+Enter or Enter to submit
+                await page.keyboard.press("Control+Enter")
+
         await _random_pause(2.0, 4.0)
 
         logger.info("Commented on post %d (%d chars)", post_index, len(comment_text))
@@ -255,24 +410,29 @@ async def comment_on_post(page: Page, post_index: int, comment_text: str) -> boo
         return False
 
 
+# ---------------------------------------------------------------------------
+# Like a post
+# ---------------------------------------------------------------------------
+
 async def like_post(page: Page, post_index: int) -> bool:
     """Like a post by its index in the current feed view."""
     try:
-        posts = await page.query_selector_all(SEL["feed_post"])
-        if post_index >= len(posts):
+        feed_posts = page.locator(SEL["feed_post"])
+        count = await feed_posts.count()
+        if post_index >= count:
             return False
 
-        post_el = posts[post_index]
-        await post_el.scroll_into_view_if_needed()
+        post = feed_posts.nth(post_index)
+        await post.scroll_into_view_if_needed()
         await _random_pause(0.5, 1.0)
 
-        like_btn = await post_el.query_selector(SEL["like_button"])
-        if not like_btn:
+        like_btn = _like_button(post)
+        if await like_btn.count() == 0:
             return False
 
-        # Check if already liked
-        aria = await like_btn.get_attribute("aria-pressed")
-        if aria == "true":
+        # Check if already liked via aria-label
+        aria = await like_btn.get_attribute("aria-label") or ""
+        if "unlike" in aria.lower() or "already" in aria.lower():
             logger.info("Post %d already liked, skipping", post_index)
             return True
 
@@ -286,28 +446,72 @@ async def like_post(page: Page, post_index: int) -> bool:
         return False
 
 
-async def get_post_comments(page: Page) -> list[dict]:
-    """Get comments on the currently visible post.
+# ---------------------------------------------------------------------------
+# Read comments on a post
+# ---------------------------------------------------------------------------
 
-    Assumes the page is already on a post detail or comment section is expanded.
+async def get_post_comments(page: Page, post_index: int = 0) -> list[dict]:
+    """Get comments on a post in the current feed view.
+
+    Clicks the Comment button to expand the comments section (if not already
+    visible), then extracts comment author and text.
+
     Returns list of dicts with keys: author, text.
     """
     comments = []
-    elements = await page.query_selector_all(SEL["comment_items"])
+    try:
+        feed_posts = page.locator(SEL["feed_post"])
+        post = feed_posts.nth(post_index)
 
-    for el in elements:
-        try:
-            author_el = await el.query_selector(SEL["comment_author"])
-            text_el = await el.query_selector(SEL["comment_text"])
-            comments.append({
-                "author": await author_el.inner_text() if author_el else "Unknown",
-                "text": await text_el.inner_text() if text_el else "",
-            })
-        except Exception:
-            continue
+        # Click comment button to expand comments section
+        comment_btn = _comment_button(post)
+        if await comment_btn.count() > 0:
+            await comment_btn.click()
+            await _random_pause(1.5, 2.5)
+
+        # Look for comment containers within the post
+        # Comments typically have article elements or divs with comment-related
+        # data-view-name attributes
+        comment_section = post.locator("article")
+        count = await comment_section.count()
+
+        if count == 0:
+            # Fallback: look for comment-like structures
+            comment_section = post.locator("[data-view-name*='comment']")
+            count = await comment_section.count()
+
+        for i in range(count):
+            try:
+                el = comment_section.nth(i)
+                full_text = await el.inner_text()
+
+                # Extract author from profile link
+                author = "Unknown"
+                author_link = el.locator(SEL["post_author_link"]).first
+                if await author_link.count() > 0:
+                    author = (await author_link.inner_text()).split("\n")[0].strip()
+
+                # Clean up comment text (remove author name from beginning)
+                text = full_text.strip()
+                if text.startswith(author):
+                    text = text[len(author):].strip()
+
+                comments.append({
+                    "author": author,
+                    "text": text[:500],
+                })
+            except Exception:
+                continue
+
+    except Exception as e:
+        logger.debug("Failed to get comments: %s", e)
 
     return comments
 
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 
 async def _random_pause(min_sec: float, max_sec: float) -> None:
     """Sleep for a random duration to simulate human behavior."""

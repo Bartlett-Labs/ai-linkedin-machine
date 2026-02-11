@@ -110,3 +110,30 @@ async def human_type_into_contenteditable(
         await page.keyboard.type(char, delay=random.randint(min_delay, max_delay))
 
     await asyncio.sleep(random.uniform(0.3, 0.7))
+
+
+async def human_type_into_element(
+    page: Page,
+    element,
+    text: str,
+    *,
+    min_delay: int = MIN_CHAR_DELAY,
+    max_delay: int = MAX_CHAR_DELAY,
+) -> None:
+    """Type into a pre-located Playwright Locator with human-like timing.
+
+    Use this when you already have a Locator reference (e.g., from
+    post.locator("div[role='textbox']")) instead of a CSS selector string.
+    """
+    await element.click()
+    await asyncio.sleep(random.uniform(0.3, 0.6))
+
+    for char in text:
+        if random.random() < PAUSE_PROBABILITY:
+            await asyncio.sleep(
+                random.randint(PAUSE_MIN_MS, PAUSE_MAX_MS) / 1000
+            )
+
+        await page.keyboard.type(char, delay=random.randint(min_delay, max_delay))
+
+    await asyncio.sleep(random.uniform(0.3, 0.7))

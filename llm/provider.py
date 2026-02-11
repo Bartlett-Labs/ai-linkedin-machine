@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 # Lazy-loaded clients
 _anthropic_client = None
 _openai_client = None
+_using_bedrock = False
 
 # Safety preamble injected into every system prompt
 SAFETY_PREAMBLE = """CRITICAL RULES - NEVER VIOLATE THESE:
@@ -32,18 +33,54 @@ SAFETY_PREAMBLE = """CRITICAL RULES - NEVER VIOLATE THESE:
 
 
 def _get_anthropic():
-    global _anthropic_client
+    global _anthropic_client, _using_bedrock
     if _anthropic_client is None:
         try:
             import anthropic
-            api_key = os.getenv("ANTHROPIC_API_KEY")
-            if api_key:
-                _anthropic_client = anthropic.Anthropic(api_key=api_key)
-                logger.info("Anthropic (Claude) client initialized")
+
+            # Priority 1: Bedrock proxy with auth token (corporate gateway)
+            # Uses ANTHROPIC_BEDROCK_BASE_URL + ANTHROPIC_AUTH_TOKEN
+            bedrock_base_url = os.getenv("ANTHROPIC_BEDROCK_BASE_URL")
+            auth_token = os.getenv("ANTHROPIC_AUTH_TOKEN")
+
+            if bedrock_base_url and auth_token:
+                _anthropic_client = anthropic.Anthropic(
+                    base_url=bedrock_base_url,
+                    api_key=auth_token,
+                )
+                _using_bedrock = True
+                logger.info(
+                    "Anthropic (Claude) client initialized via Bedrock proxy [%s]",
+                    bedrock_base_url,
+                )
+
+            # Priority 2: Standard AWS Bedrock with IAM credentials
+            elif os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION"):
+                aws_region = os.getenv("AWS_REGION", os.getenv("AWS_DEFAULT_REGION"))
+                _anthropic_client = anthropic.AnthropicBedrock(
+                    aws_region=aws_region,
+                )
+                _using_bedrock = True
+                logger.info(
+                    "Anthropic (Claude) client initialized via AWS Bedrock [%s]",
+                    aws_region,
+                )
+
+            # Priority 3: Direct Anthropic API
+            elif os.getenv("ANTHROPIC_API_KEY"):
+                _anthropic_client = anthropic.Anthropic(
+                    api_key=os.getenv("ANTHROPIC_API_KEY"),
+                )
+                logger.info("Anthropic (Claude) client initialized via direct API")
+
             else:
-                logger.warning("ANTHROPIC_API_KEY not set")
+                logger.warning(
+                    "No Anthropic auth configured. Set one of: "
+                    "ANTHROPIC_BEDROCK_BASE_URL+ANTHROPIC_AUTH_TOKEN, "
+                    "AWS_REGION, or ANTHROPIC_API_KEY"
+                )
         except ImportError:
-            logger.warning("anthropic package not installed")
+            logger.warning("anthropic package not installed (pip install anthropic[bedrock])")
     return _anthropic_client
 
 
@@ -119,7 +156,13 @@ def _try_claude(
     if not client:
         return None
 
-    model = os.getenv("CLAUDE_MODEL", "claude-opus-4-6-20250610")
+    # Bedrock model IDs use a different format than direct API
+    # Bedrock proxy format: global.anthropic.{model}-v1:0
+    # Direct API format: {model}
+    if _using_bedrock:
+        model = os.getenv("CLAUDE_MODEL", "global.anthropic.claude-opus-4-6-v1:0")
+    else:
+        model = os.getenv("CLAUDE_MODEL", "claude-opus-4-6-20250610")
 
     try:
         response = client.messages.create(

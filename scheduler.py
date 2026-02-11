@@ -8,10 +8,21 @@ and phase-based timing from the Google Sheet.
 import asyncio
 import logging
 import os
+import sys
 import time
 from datetime import datetime
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
+# Ensure project root is on sys.path and set CWD
+_PROJECT_ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(_PROJECT_ROOT))
+os.chdir(_PROJECT_ROOT)
+
+from dotenv import load_dotenv
+load_dotenv(_PROJECT_ROOT / ".env")
+
+from utils import project_path
 from scheduling.orchestrator import run_orchestrator
 from scheduling.content_calendar import is_in_posting_window, get_next_posting_time
 from sheets.client import SheetsClient

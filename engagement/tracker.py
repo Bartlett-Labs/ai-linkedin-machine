@@ -17,9 +17,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+from utils import project_path
+
 logger = logging.getLogger(__name__)
 
-TRACKING_DIR = "tracking/linkedin"
+TRACKING_DIR = project_path("tracking", "linkedin")
 
 
 def _today_file() -> str:

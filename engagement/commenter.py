@@ -26,11 +26,12 @@ from engagement.tracker import get_daily_stats, log_comment
 from engagement.lead_tracker import evaluate_lead, add_lead
 from llm.provider import generate_comment as llm_generate_comment
 from summarization.safety_filter import violates_safety
+from utils import project_path
 from utils.kill_switch import check_kill_switch
 
 logger = logging.getLogger(__name__)
 
-PERSONAS_CONFIG = "config/personas.json"
+PERSONAS_CONFIG = project_path("config", "personas.json")
 
 
 def load_personas() -> list[dict]:
@@ -100,7 +101,7 @@ async def run_commenter(
             feed_posts = await get_feed_posts(page, max_posts=15)
             feed_posts = [
                 p for p in feed_posts
-                if p["text"] and p["urn"] not in stats.get("commented_urls", set())
+                if p["text"] and p["text"] not in [r.get("post_text", "")[:60] for r in stats.get("actions", [])]
             ]
             feed_iter = iter(feed_posts)
 
@@ -155,7 +156,7 @@ async def run_commenter(
                     logger.warning("Kill switch activated, stopping commenter")
                     break
 
-                if post["text"] and post["urn"] not in stats.get("commented_urls", set()):
+                if post["text"] and post["text"] not in [r.get("post_text", "")[:60] for r in stats.get("actions", [])]:
                     result = await _comment_on_feed_post(
                         page, persona, post, comment_templates,
                         stats, dry_run, sheets_client,
@@ -199,7 +200,7 @@ async def _comment_on_target(
         post = posts[0]
 
         # Generate comment
-        comment = await _generate_comment(
+        comment = _generate_comment(
             post["text"], persona, target.category, templates
         )
         if not comment:
@@ -214,7 +215,7 @@ async def _comment_on_target(
                 target.name, quality.violations,
             )
             # Retry once with feedback
-            comment = await _generate_comment(
+            comment = _generate_comment(
                 post["text"], persona, target.category, templates,
                 feedback=f"Avoid: {', '.join(quality.violations)}"
             )
@@ -295,7 +296,7 @@ async def _comment_on_feed_post(
 ) -> Optional[dict]:
     """Comment on a post from the general feed."""
     try:
-        comment = await _generate_comment(
+        comment = _generate_comment(
             post["text"], persona, "general", templates
         )
         if not comment:
@@ -328,7 +329,7 @@ async def _comment_on_feed_post(
         log_comment(
             persona=persona["name"],
             author=post["author"],
-            post_url=post.get("urn", "feed"),
+            post_url="feed",
             post_summary=post["text"][:60],
             comment_text=comment,
         )
@@ -348,14 +349,17 @@ async def _comment_on_feed_post(
         return None
 
 
-async def _generate_comment(
+def _generate_comment(
     post_text: str,
     persona: dict,
     category: str,
     templates: list,
     feedback: str = "",
 ) -> Optional[str]:
-    """Generate a comment using the LLM provider (Claude → OpenAI → templates)."""
+    """Generate a comment using the LLM provider (Claude -> OpenAI -> templates).
+
+    This is a synchronous function because the LLM provider calls are synchronous.
+    """
     style = random.choice([
         "direct_value_add",
         "direct_value_add",

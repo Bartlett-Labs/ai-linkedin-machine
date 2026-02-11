@@ -20,8 +20,15 @@ import sys
 from pathlib import Path
 
 # Ensure project root is on sys.path
-sys.path.insert(0, str(Path(__file__).parent))
+_PROJECT_ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(_PROJECT_ROOT))
+os.chdir(_PROJECT_ROOT)
 
+# Load .env file before anything else reads env vars
+from dotenv import load_dotenv
+load_dotenv(_PROJECT_ROOT / ".env")
+
+from utils import project_path
 from sheets.client import SheetsClient
 from sheets.models import EngineMode
 from scheduling.orchestrator import run_orchestrator
@@ -31,12 +38,15 @@ from ingestion.rss_ingest import ingest
 from summarization.summarize import run_all as run_summarize
 from posting_generator.generate_post import run_all as generate_posts
 
+# Ensure log directory exists before configuring file handler
+Path(project_path("logs")).mkdir(parents=True, exist_ok=True)
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler("logs/ai-linkedin-machine.log", mode="a"),
+        logging.FileHandler(project_path("logs", "ai-linkedin-machine.log"), mode="a"),
     ],
 )
 logger = logging.getLogger(__name__)
@@ -56,7 +66,7 @@ async def main(
     # Ensure required directories exist
     for d in ["logs", "queue/incoming_raw", "queue/summaries", "queue/posts",
               "queue/engagement", "tracking/linkedin"]:
-        Path(d).mkdir(parents=True, exist_ok=True)
+        Path(project_path(d)).mkdir(parents=True, exist_ok=True)
 
     # Connect to Google Sheet
     sheets_client = None

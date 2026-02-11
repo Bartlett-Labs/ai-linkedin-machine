@@ -25,12 +25,13 @@ from engagement.tracker import get_daily_stats, log_reply
 from engagement.lead_tracker import evaluate_lead, add_lead
 from llm.provider import generate_reply as llm_generate_reply
 from summarization.safety_filter import violates_safety
+from utils import project_path
 from utils.kill_switch import check_kill_switch
 
 logger = logging.getLogger(__name__)
 
-PERSONAS_CONFIG = "config/personas.json"
-TRACKER_FILE = "queue/engagement/reply_tracker.json"
+PERSONAS_CONFIG = project_path("config", "personas.json")
+TRACKER_FILE = project_path("queue", "engagement", "reply_tracker.json")
 
 
 def load_personas() -> list[dict]:
@@ -117,23 +118,18 @@ async def run_replier(
 
             # Click into the post to see comments
             try:
-                post_elements = await page.query_selector_all("div.feed-shared-update-v2")
-                if post["element_index"] < len(post_elements):
-                    el = post_elements[post["element_index"]]
-                    await el.scroll_into_view_if_needed()
+                from browser.linkedin_actions import SEL
+                post_locators = page.locator(SEL["feed_post"])
+                count = await post_locators.count()
+                if post["element_index"] < count:
+                    post_el = post_locators.nth(post["element_index"])
+                    await post_el.scroll_into_view_if_needed()
 
-                    # Click comment button to expand comments
-                    comment_btn = await el.query_selector(
-                        "button[aria-label*='Comment']"
-                    )
-                    if comment_btn:
-                        await comment_btn.click()
-                        await asyncio.sleep(random.uniform(1.5, 3.0))
-
-                    comments = await get_post_comments(page)
+                    comments = await get_post_comments(page, post["element_index"])
 
                     for comment_data in comments:
-                        comment_key = f"{post['urn']}:{comment_data['author']}"
+                        # Use author + text snippet as dedup key (URNs no longer available)
+                        comment_key = f"{post['author']}:{comment_data['author']}:{comment_data['text'][:30]}"
                         if comment_key in replied_set:
                             continue
 
@@ -154,7 +150,7 @@ async def run_replier(
                             continue
 
                         # Generate reply
-                        reply_text = await _generate_reply(
+                        reply_text = _generate_reply(
                             comment_data["text"],
                             post["text"],
                             persona,
@@ -190,7 +186,7 @@ async def run_replier(
                             "commenter": comment_data["author"],
                             "comment": comment_data["text"][:200],
                             "reply": reply_text,
-                            "post_urn": post["urn"],
+                            "post_author": post["author"],
                             "timestamp": datetime.utcnow().isoformat(),
                             "dry_run": dry_run,
                         }
@@ -199,7 +195,7 @@ async def run_replier(
                         log_reply(
                             persona="MainUser",
                             commenter=comment_data["author"],
-                            original_post_url=post.get("urn", ""),
+                            original_post_url="activity",
                             comment_text=comment_data["text"],
                             reply_text=reply_text,
                         )
@@ -225,7 +221,7 @@ async def run_replier(
                         await asyncio.sleep(random.randint(60, 180))
 
             except Exception as e:
-                logger.error("Error processing post %s: %s", post["urn"], e)
+                logger.error("Error processing post %d: %s", post["element_index"], e)
                 continue
 
     # Save tracker
@@ -239,12 +235,15 @@ async def run_replier(
 def _check_reply_rules(comment_text: str, rules: list) -> str:
     """Check a comment against reply rules.
 
+    Uses the sheet's ReplyRules tab (columns: ConditionType, Trigger,
+    Action, Notes). ConditionType is "Forbidden" or "Allowed".
+
     Returns: "REPLY", "BLOCK", or "IGNORE".
     """
     comment_lower = comment_text.lower()
 
     for rule in rules:
-        if rule.trigger_phrase.lower() in comment_lower:
+        if rule.trigger.lower() in comment_lower:
             return rule.action.value
 
     # Default: reply to comments that seem substantive
@@ -255,12 +254,15 @@ def _check_reply_rules(comment_text: str, rules: list) -> str:
     return "REPLY"
 
 
-async def _generate_reply(
+def _generate_reply(
     comment_text: str,
     original_post: str,
     persona: dict,
 ) -> Optional[str]:
-    """Generate a contextual reply using the LLM provider (Claude → OpenAI)."""
+    """Generate a contextual reply using the LLM provider (Claude -> OpenAI).
+
+    This is a synchronous function because the LLM provider calls are synchronous.
+    """
     return llm_generate_reply(
         comment_text=comment_text,
         original_post=original_post,
@@ -271,33 +273,32 @@ async def _generate_reply(
 async def _post_reply(page, reply_text: str) -> bool:
     """Post a reply in the currently open comment thread."""
     try:
-        # Find the reply input - it should be the last textbox visible
-        reply_boxes = await page.query_selector_all("div.ql-editor[role='textbox']")
-        if not reply_boxes:
+        from browser.human_typing import human_type_into_element
+
+        # Find the reply input — last visible textbox on the page
+        reply_boxes = page.locator("div[role='textbox']")
+        count = await reply_boxes.count()
+        if count == 0:
             logger.error("No reply textbox found")
             return False
 
-        reply_box = reply_boxes[-1]
-        await reply_box.click()
-        await asyncio.sleep(random.uniform(0.3, 0.6))
-
-        # Type the reply
-        for char in reply_text:
-            await page.keyboard.type(char, delay=random.randint(50, 120))
-
+        reply_box = reply_boxes.last
+        await human_type_into_element(page, reply_box, reply_text)
         await asyncio.sleep(random.uniform(0.5, 1.0))
 
-        # Submit
-        submit_buttons = await page.query_selector_all(
-            "button[aria-label*='Post comment'], button.comments-comment-box__submit-button"
-        )
-        if submit_buttons:
-            await submit_buttons[-1].click()
-            await asyncio.sleep(random.uniform(2.0, 4.0))
-            return True
+        # Submit — look for a Post/Submit button
+        submit = page.locator("button").filter(has_text="Post").last
+        if await submit.count() > 0:
+            await submit.click()
+        else:
+            submit = page.locator("button[aria-label*='Post'], button[aria-label*='Submit']")
+            if await submit.count() > 0:
+                await submit.last.click()
+            else:
+                await page.keyboard.press("Control+Enter")
 
-        logger.error("Submit button not found for reply")
-        return False
+        await asyncio.sleep(random.uniform(2.0, 4.0))
+        return True
 
     except Exception as e:
         logger.error("Failed to post reply: %s", e)
