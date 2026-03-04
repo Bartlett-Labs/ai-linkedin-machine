@@ -1,33 +1,48 @@
 # ENGRAM — AI LinkedIn Machine
 
-> Last updated: 2026-03-04 (Dashboard build session)
+> Last updated: 2026-03-04T12:00 CST
 
-## Current State: Dashboard webapp Phase 1+2 COMPLETE — needs build verification
+## Current State: Dashboard Phases 1-3 COMPLETE + Docker verified
+
+All dashboard work is done and committed. Both Docker containers build and run.
 
 ## Completed Work (2026-03-04)
 
-### FastAPI Backend (api/) — DONE
-- Added CRUD methods to `sheets/client.py`: update_engine_control, get_tab_data, append_tab_row, update_tab_row, delete_tab_row, get_system_log, update_schedule_config
-- `api/server.py` — FastAPI app, CORS, all routes at /api
-- `api/deps.py` — SheetsClient singleton, API key auth
-- 10 route modules: engine, schedule, content, targets, templates, rules, personas, analytics, history, alerts
-- 2 services: alert_service (AlertManager w/ urgency timers), analytics_service (aggregates tracker+SystemLog)
+### Session 1 (previous): Dashboard Build
+- FastAPI backend (api/) — 10 route modules, CRUD endpoints, alert + analytics services, API key auth
+- Next.js dashboard (dashboard/) — shadcn/ui, dark mode, 12 pages (home, alerts, analytics, history, 7 config pages)
+- Docker setup (Dockerfile.api, dashboard/Dockerfile, docker-compose.yml)
+- Extended sheets/client.py with full CRUD methods
 
-### Next.js Dashboard (dashboard/) — DONE
-- Next.js + shadcn/ui + Tailwind dark mode + recharts + lucide-react
-- `src/lib/api.ts` — typed API client, `src/lib/websocket.ts` — WS client
-- `src/hooks/use-api.ts`, `src/hooks/use-alerts.ts`
-- Layout with sidebar (12 nav items)
-- 11 pages: /, /alerts, /analytics, /history, /config/{engine,schedule,content,targets,templates,rules,personas}
+### Session 2 (this session): Verification + CRUD Forms + Docker
+- Fixed 3 TypeScript build errors (Record casting, unknown ReactNode, PlanAction type)
+- Verified FastAPI `/api/health` returns 200
+- Verified `npm run build` passes — all 12 routes generated
+- **Added CRUD forms to ALL config pages:**
+  - Content: create + edit dialog (category, type, draft, ready toggle). Repost: create dialog.
+  - Targets: create + edit dialog (name, URL, category, priority, notes)
+  - Templates: create dialog (persona/tone/category selects), persona filter dropdown
+  - Rules: create dialogs for reply rules + safety terms
+  - Schedule: edit dialog for per-phase rate limits
+  - Personas: edit dialog (display name, location, frequencies)
+- **Docker Compose verified:**
+  - Fixed NEXT_PUBLIC_API_URL to localhost:8000 (browser-accessible, not Docker internal)
+  - Added .dockerignore (saves ~100MB context)
+  - Dashboard Dockerfile uses build ARG for API URL baking
+  - Both containers build and run: API :8000 ✅, Dashboard :3000 ✅
+- Git commits: `d915e41`, `d2df132`
 
-### Docker — DONE
-- Dockerfile.api, dashboard/Dockerfile, docker-compose.yml
+## Containers Status
+- **Running** as of session end. Stop with: `cd /Volumes/Bart_26/Dev_Expansion/Personal/Career/LinkedIn/ai-linkedin-machine && docker-compose down`
 
 ## Next Steps
-1. `pip install fastapi uvicorn[standard] websockets` in project venv
-2. `python -m api.server` → test `curl localhost:8000/api/health`
-3. `cd dashboard && npm run build` → fix any TS errors
-4. Add .env vars: DASHBOARD_API_KEY, CORS_ORIGINS, NEXT_PUBLIC_API_URL
-5. `docker-compose up --build` → verify both containers
-6. Add create/edit forms to config pages (most are read+delete only)
-7. Phase 3: Deploy to Hetzner/Coolify
+1. **Deploy to Hetzner/Coolify** — Production deployment of dashboard + API behind reverse proxy
+2. **WebSocket live updates** — `dashboard/src/lib/websocket.ts` exists but isn't wired to any pages. Connect SystemLog streaming to home page and alerts page for real-time updates.
+3. **Excel file cleanup** — `LinkedIn Automator Stealth Engine V2.xlsx` is untracked in git. Either gitignore or commit it.
+4. **End-to-end testing** — Full flow: Sheet → API → Dashboard CRUD operations → verify Sheet updates
+
+## Architecture Reference
+- **API**: FastAPI at `api/server.py`, routes at `api/routes/`, deps at `api/deps.py`
+- **Dashboard**: Next.js at `dashboard/`, API client at `dashboard/src/lib/api.ts`, hooks at `dashboard/src/hooks/`
+- **Docker**: `Dockerfile.api` (Python 3.12-slim), `dashboard/Dockerfile` (node:20-alpine multi-stage), `docker-compose.yml`
+- **Auth**: Optional API key via `DASHBOARD_API_KEY` env var (disabled in dev mode)
