@@ -42,9 +42,14 @@ class EngineMode(str, Enum):
 
     @classmethod
     def _missing_(cls, value):
-        lookup = {"live": cls.LIVE, "dryrun": cls.DRY_RUN, "dry_run": cls.DRY_RUN,
-                  "paused": cls.PAUSED}
-        return lookup.get(str(value).lower().replace(" ", ""))
+        normalized = str(value).lower().replace(" ", "").replace("_", "")
+        lookup = {
+            "live": cls.LIVE,
+            "dryrun": cls.DRY_RUN,
+            "dry_run": cls.DRY_RUN,
+            "paused": cls.PAUSED,
+        }
+        return lookup.get(normalized)
 
 
 class ReplyAction(str, Enum):
@@ -145,6 +150,22 @@ class ScheduleConfig:
     phantom_comments_max: int = 2
     min_delay_sec: int = 300
     max_likes_per_day: int = 20
+
+
+@dataclass
+class ActivityWindow:
+    """Represents a row from the ActivityWindows tab.
+
+    Sheet columns: WindowName, StartHour, EndHour, DaysOfWeek, Enabled
+
+    Controls when the scheduler is active throughout the day.
+    Overrides the hardcoded POSTING_WINDOWS in content_calendar.py.
+    """
+    window_name: str
+    start_hour: int = 6
+    end_hour: int = 8
+    days_of_week: str = "all"  # "all", "weekdays", "weekends", or "Mon,Tue,Wed"
+    enabled: bool = True
 
 
 @dataclass

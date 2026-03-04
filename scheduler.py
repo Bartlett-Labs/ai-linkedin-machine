@@ -50,10 +50,24 @@ def main():
     except Exception as e:
         logger.warning("Could not connect to Sheet (will retry): %s", e)
 
+    # Load activity windows from Sheet (if tab exists), otherwise use defaults
+    activity_windows = []
+    if sheets_client:
+        try:
+            activity_windows = sheets_client.get_activity_windows()
+            if activity_windows:
+                enabled = [w for w in activity_windows if w.enabled]
+                logger.info(
+                    "Loaded %d activity windows from Sheet (%d enabled)",
+                    len(activity_windows), len(enabled),
+                )
+        except Exception as e:
+            logger.debug("Could not load ActivityWindows from Sheet: %s", e)
+
     while True:
         try:
             now = datetime.now(TIMEZONE)
-            in_window, window_name = is_in_posting_window()
+            in_window, window_name = is_in_posting_window(activity_windows)
 
             if in_window:
                 logger.info("In posting window: %s", window_name)
@@ -66,6 +80,14 @@ def main():
                         logger.error("Still can't connect to Sheet: %s", e)
                         time.sleep(CHECK_INTERVAL_SEC)
                         continue
+
+                # Reload activity windows from Sheet each cycle
+                try:
+                    fresh_windows = sheets_client.get_activity_windows()
+                    if fresh_windows:
+                        activity_windows = fresh_windows
+                except Exception:
+                    pass
 
                 # Run orchestrator
                 summary = asyncio.run(
@@ -80,7 +102,7 @@ def main():
                 # running again in the same window
                 time.sleep(CHECK_INTERVAL_SEC * 6)  # ~30 minutes
             else:
-                next_time = get_next_posting_time()
+                next_time = get_next_posting_time(activity_windows=activity_windows)
                 if next_time:
                     logger.info(
                         "Outside posting window. Next window at %s",

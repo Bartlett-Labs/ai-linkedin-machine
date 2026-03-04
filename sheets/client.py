@@ -21,6 +21,7 @@ from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 
 from sheets.models import (
+    ActivityWindow,
     QueueItem,
     QueueStatus,
     CommentTarget,
@@ -52,6 +53,7 @@ TAB_ENGINE_CONTROL = "EngineControl"
 TAB_SYSTEM_LOG = "SystemLog"
 TAB_CONTENT_BANK = "ContentBank"
 TAB_REPOST_BANK = "RepostBank"
+TAB_ACTIVITY_WINDOWS = "ActivityWindows"
 
 # Map ScheduleControl "Mode" values to Phase enum values
 _SCHEDULE_MODE_TO_PHASE = {
@@ -328,11 +330,10 @@ class SheetsClient:
     def get_comment_templates(self, persona: str = "MainUser") -> list[CommentTemplate]:
         """Read comment templates, optionally filtered by persona.
 
-        Note: The sheet currently has no Persona column, so all templates
-        default to MainUser. If a Persona column is added later, it will
-        be picked up automatically.
+        Sheet columns: ID, TemplateText, Tone, Category, SafetyFlag,
+                       ExampleUse, Persona (col G).
         """
-        rows = self._read_range(f"{TAB_COMMENT_TEMPLATES}!A:F")
+        rows = self._read_range(f"{TAB_COMMENT_TEMPLATES}!A:G")
         if len(rows) < 2:
             return []
 
@@ -487,6 +488,44 @@ class SheetsClient:
         return None
 
     # ------------------------------------------------------------------
+    # ActivityWindows
+    # Sheet columns: WindowName, StartHour, EndHour, DaysOfWeek, Enabled
+    # ------------------------------------------------------------------
+
+    def get_activity_windows(self) -> list[ActivityWindow]:
+        """Read activity time windows from the ActivityWindows tab.
+
+        Returns an empty list if the tab doesn't exist (falls back to
+        hardcoded defaults in content_calendar.py).
+        """
+        try:
+            rows = self._read_range(f"{TAB_ACTIVITY_WINDOWS}!A2:E")
+        except Exception as e:
+            logger.debug("ActivityWindows tab not found (using defaults): %s", e)
+            return []
+
+        windows = []
+        for row in rows:
+            if len(row) < 3:
+                continue
+            try:
+                enabled = True
+                if len(row) >= 5:
+                    enabled = str(row[4]).strip().upper() not in ("FALSE", "NO", "0", "")
+                windows.append(
+                    ActivityWindow(
+                        window_name=str(row[0]).strip(),
+                        start_hour=int(row[1]),
+                        end_hour=int(row[2]),
+                        days_of_week=str(row[3]).strip() if len(row) >= 4 else "all",
+                        enabled=enabled,
+                    )
+                )
+            except (ValueError, IndexError) as e:
+                logger.warning("Skipping invalid ActivityWindows row %s: %s", row, e)
+        return windows
+
+    # ------------------------------------------------------------------
     # EngineControl
     # Key-value pairs in columns A and B (no header row)
     # ------------------------------------------------------------------
@@ -514,16 +553,29 @@ class SheetsClient:
             last_run=settings.get("LastRun"),
         )
 
+    def update_engine_control(self, settings: dict) -> None:
+        """Update key-value pairs in EngineControl tab.
+
+        Args:
+            settings: Dict of key-value pairs to update.
+                      Keys must match existing row labels in column A.
+        """
+        rows = self._read_range(f"{TAB_ENGINE_CONTROL}!A:B")
+        for key, value in settings.items():
+            for idx, row in enumerate(rows):
+                if row and row[0].strip() == key:
+                    self._update_cells(
+                        f"{TAB_ENGINE_CONTROL}!B{idx + 1}",
+                        [[str(value)]],
+                    )
+                    break
+            else:
+                # Key not found — append it
+                self._append_row(TAB_ENGINE_CONTROL, [key, str(value)])
+
     def update_last_run(self) -> None:
         """Update the LastRun timestamp in EngineControl."""
-        rows = self._read_range(f"{TAB_ENGINE_CONTROL}!A:B")
-        for idx, row in enumerate(rows):
-            if row and row[0].strip() == "LastRun":
-                self._update_cells(
-                    f"{TAB_ENGINE_CONTROL}!B{idx + 1}",
-                    [[datetime.utcnow().isoformat()]],
-                )
-                return
+        self.update_engine_control({"LastRun": datetime.utcnow().isoformat()})
 
     # ------------------------------------------------------------------
     # SystemLog
@@ -658,6 +710,129 @@ class SheetsClient:
                 )
             )
         return items
+
+    # ------------------------------------------------------------------
+    # Generic tab CRUD (used by the API layer)
+    # ------------------------------------------------------------------
+
+    def get_tab_data(self, tab: str, range_spec: str = "A:Z") -> tuple[list[str], list[list[str]], int]:
+        """Read header + all data rows from a tab.
+
+        Returns:
+            Tuple of (header, data_rows, total_rows).
+            Each data_row includes its sheet row index at position 0.
+        """
+        rows = self._read_range(f"{tab}!{range_spec}")
+        if not rows:
+            return [], [], 0
+        header = rows[0]
+        data = []
+        for idx, row in enumerate(rows[1:], start=2):
+            padded = row + [""] * (len(header) - len(row))
+            data.append([str(idx)] + padded)
+        return header, data, len(data)
+
+    def append_tab_row(self, tab: str, header: list[str], row_dict: dict) -> None:
+        """Append a new row to a tab using column names.
+
+        Args:
+            tab: Sheet tab name.
+            header: Column names in order.
+            row_dict: Dict mapping column names to values.
+        """
+        values = [str(row_dict.get(col, "")) for col in header]
+        self._append_row(tab, values)
+
+    def update_tab_row(self, tab: str, row_index: int, header: list[str], row_dict: dict) -> None:
+        """Update specific cells in a row using column names.
+
+        Args:
+            tab: Sheet tab name.
+            row_index: 1-based row number in the sheet.
+            header: Column names in order.
+            row_dict: Dict of column names to new values (partial update OK).
+        """
+        for col_name, value in row_dict.items():
+            if col_name in header:
+                col_idx = header.index(col_name)
+                col_letter = _col_letter(col_idx)
+                self._update_cells(f"{tab}!{col_letter}{row_index}", [[str(value)]])
+
+    def delete_tab_row(self, tab: str, row_index: int, num_cols: int = 10) -> None:
+        """Clear a row in a tab (effectively deletes the data).
+
+        Args:
+            tab: Sheet tab name.
+            row_index: 1-based row number in the sheet.
+            num_cols: Number of columns to clear.
+        """
+        end_col = _col_letter(num_cols - 1)
+        self._update_cells(
+            f"{tab}!A{row_index}:{end_col}{row_index}",
+            [[""] * num_cols],
+        )
+
+    # ------------------------------------------------------------------
+    # SystemLog read with pagination
+    # ------------------------------------------------------------------
+
+    def get_system_log(
+        self,
+        limit: int = 50,
+        offset: int = 0,
+        action_filter: Optional[str] = None,
+        module_filter: Optional[str] = None,
+        date_from: Optional[str] = None,
+        date_to: Optional[str] = None,
+    ) -> tuple[list[dict], int]:
+        """Read SystemLog entries with pagination and filtering.
+
+        Returns:
+            Tuple of (entries, total_count).
+        """
+        rows = self._read_range(f"{TAB_SYSTEM_LOG}!A:G")
+        if len(rows) < 2:
+            return [], 0
+
+        header = rows[0]
+        entries = []
+        for row in rows[1:]:
+            d = dict(zip(header, row + [""] * (len(header) - len(row))))
+            if not d.get("Timestamp"):
+                continue
+
+            # Apply filters
+            if action_filter and action_filter.lower() not in d.get("Action", "").lower():
+                continue
+            if module_filter and module_filter.lower() not in d.get("Module", "").lower():
+                continue
+            if date_from and d.get("Timestamp", "") < date_from:
+                continue
+            if date_to and d.get("Timestamp", "") > date_to:
+                continue
+
+            entries.append(d)
+
+        # Reverse to show newest first
+        entries.reverse()
+        total = len(entries)
+        return entries[offset:offset + limit], total
+
+    # ------------------------------------------------------------------
+    # Schedule config updates
+    # ------------------------------------------------------------------
+
+    def update_schedule_config(self, mode: str, updates: dict) -> None:
+        """Update a ScheduleControl row by mode name."""
+        rows = self._read_range(f"{TAB_SCHEDULE_CONTROL}!A:F")
+        if not rows:
+            return
+        header = rows[0]
+        for idx, row in enumerate(rows[1:], start=2):
+            d = dict(zip(header, row + [""] * (len(header) - len(row))))
+            if d.get("Mode", "").strip().lower() == mode.lower():
+                self.update_tab_row(TAB_SCHEDULE_CONTROL, idx, header, updates)
+                return
 
 
 def _col_letter(index: int) -> str:

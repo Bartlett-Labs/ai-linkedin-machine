@@ -20,6 +20,7 @@ from browser.linkedin_actions import (
     get_feed_posts,
     get_post_comments,
 )
+from config import load_personas
 from engagement.quality_checker import check_quality
 from engagement.tracker import get_daily_stats, log_reply
 from engagement.lead_tracker import evaluate_lead, add_lead
@@ -30,13 +31,7 @@ from utils.kill_switch import check_kill_switch
 
 logger = logging.getLogger(__name__)
 
-PERSONAS_CONFIG = project_path("config", "personas.json")
 TRACKER_FILE = project_path("queue", "engagement", "reply_tracker.json")
-
-
-def load_personas() -> list[dict]:
-    with open(PERSONAS_CONFIG, "r") as f:
-        return json.load(f)["personas"]
 
 
 def _load_reply_tracker() -> dict:

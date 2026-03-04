@@ -1,47 +1,73 @@
-import os
+"""
+Web scraper for enriching RSS-ingested articles with full content.
+
+Fetches the actual article body when the RSS feed only provides a short
+summary. Uses requests + BeautifulSoup to extract paragraph text.
+"""
+
 import json
+import logging
+import os
+
 import requests
 from bs4 import BeautifulSoup
-from urllib.parse import urljoin
 
-RAW_DIR = "queue/incoming_raw/"
+from utils import project_path
 
-def scrape_article(url):
+logger = logging.getLogger(__name__)
+
+RAW_DIR = project_path("queue", "incoming_raw")
+
+_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0.0.0 Safari/537.36"
+    ),
+}
+
+
+def scrape_article(url: str) -> str:
+    """Fetch and extract paragraph text from a URL."""
     try:
-        response = requests.get(url, timeout=10)
+        response = requests.get(url, timeout=15, headers=_HEADERS)
         response.raise_for_status()
-        soup = BeautifulSoup(response.content, 'html.parser')
+        soup = BeautifulSoup(response.content, "html.parser")
 
-        # Extract title
-        title = soup.find('title')
-        title = title.text.strip() if title else "No Title"
-
-        # Extract main content (simple heuristic: paragraphs)
-        paragraphs = soup.find_all('p')
-        content = ' '.join([p.text.strip() for p in paragraphs if p.text.strip()])
-
+        paragraphs = soup.find_all("p")
+        content = " ".join(p.text.strip() for p in paragraphs if p.text.strip())
         return content
     except Exception as e:
-        print(f"Error scraping {url}: {e}")
+        logger.error("Error scraping %s: %s", url, e)
         return ""
 
-def update_raw_files():
+
+def update_raw_files() -> None:
+    """Enrich raw articles that have empty summaries by scraping the source URL."""
+    if not os.path.isdir(RAW_DIR):
+        logger.warning("Raw directory does not exist: %s", RAW_DIR)
+        return
+
     for file in os.listdir(RAW_DIR):
-        if file.endswith(".json"):
-            path = os.path.join(RAW_DIR, file)
-            with open(path, "r") as f:
-                data = json.load(f)
+        if not file.endswith(".json"):
+            continue
 
-            if not data.get("summary_raw"):
-                url = data.get("url")
-                if url:
-                    print(f"Scraping: {url}")
-                    content = scrape_article(url)
-                    data["summary_raw"] = content[:5000]  # Limit to 5000 chars
+        path = os.path.join(RAW_DIR, file)
+        with open(path, "r") as f:
+            data = json.load(f)
 
-                    with open(path, "w") as f:
-                        json.dump(data, f, indent=2)
-                    print(f"Updated: {path}")
+        if not data.get("summary_raw"):
+            url = data.get("url")
+            if url:
+                logger.info("Scraping: %s", url)
+                content = scrape_article(url)
+                data["summary_raw"] = content[:5000]
+
+                with open(path, "w") as f:
+                    json.dump(data, f, indent=2)
+                logger.info("Updated: %s", path)
+
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     update_raw_files()

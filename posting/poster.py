@@ -6,9 +6,7 @@ OutboundQueue. Uses browser automation with human-like behavior.
 """
 
 import asyncio
-import json
 import logging
-import os
 from pathlib import Path
 from typing import Optional
 
@@ -21,12 +19,6 @@ from utils import project_path
 logger = logging.getLogger(__name__)
 
 POSTS_DIR = project_path("queue", "posts")
-PERSONAS_CONFIG = project_path("config", "personas.json")
-
-
-def load_personas() -> list[dict]:
-    with open(PERSONAS_CONFIG, "r") as f:
-        return json.load(f)["personas"]
 
 
 async def post_from_queue(

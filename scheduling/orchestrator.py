@@ -12,9 +12,7 @@ The main coordinator that:
 """
 
 import asyncio
-import json
 import logging
-import os
 import random
 from datetime import datetime
 
@@ -28,6 +26,7 @@ from browser.linkedin_actions import (
     get_feed_posts,
     LinkedInChallengeDetected,
 )
+from config import load_personas
 from engagement.commenter import run_commenter
 from engagement.replier import run_replier
 from engagement.tracker import log_post, log_like
@@ -41,7 +40,6 @@ from utils.dedup import deduplicate_queue
 logger = logging.getLogger(__name__)
 
 RATE_LIMITS_PATH = project_path("config", "rate_limits.yaml")
-PERSONAS_CONFIG = project_path("config", "personas.json")
 
 
 def _load_rate_limits() -> dict:
@@ -49,14 +47,9 @@ def _load_rate_limits() -> dict:
         return yaml.safe_load(f)
 
 
-def _load_personas() -> list[dict]:
-    with open(PERSONAS_CONFIG, "r") as f:
-        return json.load(f)["personas"]
-
-
 def _get_phantom_personas() -> list[dict]:
     """Get all personas except MainUser."""
-    return [p for p in _load_personas() if p["name"] != "MainUser"]
+    return [p for p in load_personas() if p["name"] != "MainUser"]
 
 
 async def run_orchestrator(

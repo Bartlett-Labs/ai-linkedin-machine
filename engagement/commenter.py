@@ -7,11 +7,9 @@ Validates every comment through quality_checker before posting.
 """
 
 import asyncio
-import json
 import logging
-import os
 import random
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Optional
 
 from browser.context_manager import PersonaContext
@@ -21,27 +19,15 @@ from browser.linkedin_actions import (
     get_feed_posts,
     comment_on_post,
 )
+from config import load_personas
 from engagement.quality_checker import check_quality
 from engagement.tracker import get_daily_stats, log_comment
 from engagement.lead_tracker import evaluate_lead, add_lead
 from llm.provider import generate_comment as llm_generate_comment
 from summarization.safety_filter import violates_safety
-from utils import project_path
 from utils.kill_switch import check_kill_switch
 
 logger = logging.getLogger(__name__)
-
-PERSONAS_CONFIG = project_path("config", "personas.json")
-
-
-def load_personas() -> list[dict]:
-    with open(PERSONAS_CONFIG, "r") as f:
-        return json.load(f)["personas"]
-
-
-def _get_main_persona() -> dict:
-    personas = load_personas()
-    return next((p for p in personas if p["name"] == "MainUser"), personas[0])
 
 
 async def run_commenter(
