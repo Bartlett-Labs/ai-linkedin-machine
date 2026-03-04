@@ -1,0 +1,15 @@
+node_modules/
+dashboard/node_modules/
+dashboard/.next/
+.git/
+.env
+__pycache__/
+*.pyc
+venv/
+credentials/
+sessions/
+logs/
+tracking/
+queue/
+.DS_Store
+*.xlsx
