@@ -1,0 +1,271 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import { getFeeds, createFeed, updateFeed, deleteFeed, type FeedSource } from "@/lib/api";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Rss, Plus, RefreshCw, ExternalLink, Trash2,
+  Edit3, Globe, Clock, CheckCircle2, XCircle,
+} from "lucide-react";
+
+const CATEGORY_COLORS: Record<string, string> = {
+  ai:           "text-blue-400    border-blue-400/30    bg-blue-400/10",
+  automation:   "text-purple-400  border-purple-400/30  bg-purple-400/10",
+  ops:          "text-emerald-400 border-emerald-400/30 bg-emerald-400/10",
+  tech:         "text-cyan-400    border-cyan-400/30    bg-cyan-400/10",
+  business:     "text-amber-400   border-amber-400/30   bg-amber-400/10",
+  career:       "text-pink-400    border-pink-400/30    bg-pink-400/10",
+  "":           "text-zinc-400    border-zinc-400/30    bg-zinc-400/10",
+};
+
+function formatDate(iso: string | null) {
+  if (!iso) return "Never";
+  const d = new Date(iso);
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) + " " +
+    d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+}
+
+function FeedForm({
+  initial,
+  onSubmit,
+  submitLabel,
+}: {
+  initial?: Partial<FeedSource>;
+  onSubmit: (data: { name: string; url: string; type: string; category: string; active: boolean }) => void;
+  submitLabel: string;
+}) {
+  const [name, setName] = useState(initial?.name || "");
+  const [url, setUrl] = useState(initial?.url || "");
+  const [type, setType] = useState(initial?.type || "rss");
+  const [category, setCategory] = useState(initial?.category || "");
+  const [active, setActive] = useState(initial?.active ?? true);
+
+  return (
+    <div className="space-y-4 pt-2">
+      <div className="space-y-1.5">
+        <Label className="text-xs text-muted-foreground">Feed Name</Label>
+        <Input value={name} onChange={e => setName(e.target.value)} placeholder="MIT Technology Review — AI" />
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-xs text-muted-foreground">URL</Label>
+        <Input value={url} onChange={e => setUrl(e.target.value)} placeholder="https://example.com/feed.xml" className="font-mono text-sm" />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">Type</Label>
+          <Select value={type} onValueChange={setType}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="rss">RSS</SelectItem>
+              <SelectItem value="atom">Atom</SelectItem>
+              <SelectItem value="json">JSON Feed</SelectItem>
+              <SelectItem value="scraper">Web Scraper</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">Category</Label>
+          <Select value={category} onValueChange={setCategory}>
+            <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ai">AI</SelectItem>
+              <SelectItem value="automation">Automation</SelectItem>
+              <SelectItem value="ops">Operations</SelectItem>
+              <SelectItem value="tech">Technology</SelectItem>
+              <SelectItem value="business">Business</SelectItem>
+              <SelectItem value="career">Career</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      <div className="flex items-center justify-between">
+        <div>
+          <Label className="text-sm">Active</Label>
+          <p className="text-xs text-muted-foreground">Include this feed in ingestion runs</p>
+        </div>
+        <Switch checked={active} onCheckedChange={setActive} />
+      </div>
+      <Button onClick={() => onSubmit({ name, url, type, category, active })} className="w-full" disabled={!name.trim() || !url.trim()}>
+        {submitLabel}
+      </Button>
+    </div>
+  );
+}
+
+export default function FeedsPage() {
+  const [feeds, setFeeds] = useState<FeedSource[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editFeed, setEditFeed] = useState<FeedSource | null>(null);
+
+  const fetchFeeds = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await getFeeds(false);
+      setFeeds(res.feeds);
+    } catch (e) {
+      console.error("Failed to fetch feeds:", e);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchFeeds(); }, [fetchFeeds]);
+
+  const handleCreate = async (data: { name: string; url: string; type: string; category: string; active: boolean }) => {
+    await createFeed(data);
+    setCreateOpen(false);
+    fetchFeeds();
+  };
+
+  const handleUpdate = async (data: { name: string; url: string; type: string; category: string; active: boolean }) => {
+    if (!editFeed) return;
+    await updateFeed(editFeed.id, data);
+    setEditFeed(null);
+    fetchFeeds();
+  };
+
+  const handleDelete = async (id: number) => {
+    await deleteFeed(id);
+    fetchFeeds();
+  };
+
+  const handleToggleActive = async (feed: FeedSource) => {
+    await updateFeed(feed.id, { active: !feed.active });
+    fetchFeeds();
+  };
+
+  const activeCount = feeds.filter(f => f.active).length;
+  const inactiveCount = feeds.filter(f => !f.active).length;
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Feed Sources</h1>
+          <p className="text-sm text-muted-foreground mt-1">Manage RSS feeds for content ingestion pipeline</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={fetchFeeds} disabled={loading}>
+            <RefreshCw className={`h-4 w-4 mr-1.5 ${loading ? "animate-spin" : ""}`} />Refresh
+          </Button>
+          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm"><Plus className="h-4 w-4 mr-1.5" />Add Feed</Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader><DialogTitle>Add Feed Source</DialogTitle></DialogHeader>
+              <FeedForm onSubmit={handleCreate} submitLabel="Add Feed" />
+            </DialogContent>
+          </Dialog>
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="rounded-lg border p-3">
+          <div className="flex items-center justify-between">
+            <Rss className="h-4 w-4 text-muted-foreground" />
+            <span className="text-2xl font-bold tabular-nums">{feeds.length}</span>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">Total Feeds</p>
+        </div>
+        <div className="rounded-lg border p-3">
+          <div className="flex items-center justify-between">
+            <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+            <span className="text-2xl font-bold tabular-nums text-emerald-400">{activeCount}</span>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">Active</p>
+        </div>
+        <div className="rounded-lg border p-3">
+          <div className="flex items-center justify-between">
+            <XCircle className="h-4 w-4 text-zinc-500" />
+            <span className="text-2xl font-bold tabular-nums text-zinc-500">{inactiveCount}</span>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">Inactive</p>
+        </div>
+      </div>
+
+      {/* Feed Cards */}
+      {loading && feeds.length === 0 ? (
+        <Card><CardContent className="py-12 text-center text-muted-foreground">Loading feeds...</CardContent></Card>
+      ) : feeds.length === 0 ? (
+        <Card>
+          <CardContent className="py-16 text-center">
+            <Rss className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
+            <p className="text-muted-foreground">No feed sources configured</p>
+            <p className="text-xs text-muted-foreground/60 mt-1">Add RSS feeds to power the content ingestion pipeline</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {feeds.map(feed => {
+            const catColors = CATEGORY_COLORS[feed.category] || CATEGORY_COLORS[""];
+            return (
+              <Card key={feed.id} className={`group transition-all ${feed.active ? "hover:border-foreground/15" : "opacity-60"}`}>
+                <CardContent className="py-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <Globe className={`h-4 w-4 flex-shrink-0 ${feed.active ? "text-foreground" : "text-muted-foreground"}`} />
+                        <h3 className="text-sm font-medium truncate">{feed.name}</h3>
+                      </div>
+                      <a href={feed.url} target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mt-1.5 transition-colors font-mono truncate max-w-full">
+                        <ExternalLink className="h-3 w-3 flex-shrink-0" />
+                        <span className="truncate">{feed.url}</span>
+                      </a>
+                    </div>
+                    <Switch checked={feed.active} onCheckedChange={() => handleToggleActive(feed)} />
+                  </div>
+
+                  <div className="flex items-center gap-2 mt-3">
+                    <Badge variant="outline" className="text-[10px] font-mono">{feed.type}</Badge>
+                    {feed.category && (
+                      <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-medium rounded-full border ${catColors}`}>
+                        {feed.category}
+                      </span>
+                    )}
+                    <div className="flex-1" />
+                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground/60">
+                      <Clock className="h-3 w-3" />
+                      <span>{formatDate(feed.last_fetched)}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-1.5 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setEditFeed(feed)}>
+                      <Edit3 className="h-3 w-3 mr-1" />Edit
+                    </Button>
+                    <Button variant="ghost" size="sm" className="h-7 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                      onClick={() => handleDelete(feed.id)}>
+                      <Trash2 className="h-3 w-3 mr-1" />Remove
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Edit Dialog */}
+      <Dialog open={!!editFeed} onOpenChange={open => !open && setEditFeed(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Edit Feed Source</DialogTitle></DialogHeader>
+          {editFeed && (
+            <FeedForm initial={editFeed} onSubmit={handleUpdate} submitLabel="Save Changes" />
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

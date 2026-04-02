@@ -145,5 +145,71 @@ export const getAlerts = (limit?: number) => request<EngagementAlert[]>(`/alerts
 export const markAlertResponded = (id: string) => request(`/alerts/${id}/respond`, { method: "POST" });
 export const dismissAlert = (id: string) => request(`/alerts/${id}/dismiss`, { method: "POST" });
 
+// Queue
+export interface QueueItem {
+  id: number; created_at: string | null; post_id: string; action_type: string;
+  persona: string; target_name: string; target_url: string; draft_text: string;
+  status: string; scheduled_time: string | null; executed_at: string | null; notes: string;
+}
+export interface QueueResponse { items: QueueItem[]; total: number; limit: number; offset: number; }
+export interface QueueStats { total: number; [status: string]: number; }
+export const getQueue = (params: { status?: string; limit?: number; offset?: number } = {}) => {
+  const qs = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => { if (v !== undefined) qs.set(k, String(v)); });
+  return request<QueueResponse>(`/queue?${qs}`);
+};
+export const getQueueStats = () => request<QueueStats>("/queue/stats");
+export const updateQueueItem = (id: number, data: { status?: string; draft_text?: string; notes?: string }) =>
+  request(`/queue/${id}`, { method: "PUT", body: JSON.stringify(data) });
+export const createQueueItem = (data: { post_id?: string; persona?: string; draft_text: string; action_type?: string; target_url?: string; notes?: string }) =>
+  request(`/queue`, { method: "POST", body: JSON.stringify(data) });
+
+// Pipeline
+export interface PipelineRun {
+  id: number; started_at: string | null; completed_at: string | null;
+  trigger_type: string; status: string; phase: string;
+  posts_made: number; comments_made: number; replies_made: number;
+  phantom_actions: number; errors: Record<string, unknown> | null; summary: string;
+}
+export interface PipelineRunsResponse { runs: PipelineRun[]; total: number; limit: number; offset: number; }
+export interface PipelineError {
+  source: string; run_id?: number; log_id?: number; timestamp: string | null;
+  phase?: string; status?: string; errors?: Record<string, unknown> | null; summary?: string;
+  module?: string; action?: string; target?: string; result?: string; notes?: string;
+}
+export interface ErrorsResponse {
+  pipeline_errors: PipelineError[]; system_errors: PipelineError[];
+  pipeline_error_count: number; system_error_count: number;
+}
+export const getPipelineRuns = (params: { limit?: number; offset?: number } = {}) => {
+  const qs = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => { if (v !== undefined) qs.set(k, String(v)); });
+  return request<PipelineRunsResponse>(`/pipeline/runs?${qs}`);
+};
+export const triggerPipelineRun = (data: { trigger_type?: string; dry_run?: boolean } = {}) =>
+  request<{ status: string; run_id: number; phase: string; mode: string; dry_run: boolean }>(
+    "/pipeline/run", { method: "POST", body: JSON.stringify(data) }
+  );
+export const getPipelineErrors = (params: { limit?: number; offset?: number } = {}) => {
+  const qs = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => { if (v !== undefined) qs.set(k, String(v)); });
+  return request<ErrorsResponse>(`/pipeline/errors?${qs}`);
+};
+
+// Feeds
+export interface FeedSource {
+  id: number; name: string; url: string; type: string;
+  category: string; active: boolean; last_fetched: string | null; created_at: string | null;
+}
+export interface FeedsResponse { feeds: FeedSource[]; total: number; }
+export const getFeeds = (activeOnly?: boolean) =>
+  request<FeedsResponse>(`/feeds?active_only=${activeOnly || false}`);
+export const createFeed = (data: { name: string; url: string; type?: string; category?: string; active?: boolean }) =>
+  request("/feeds", { method: "POST", body: JSON.stringify(data) });
+export const updateFeed = (id: number, data: Partial<FeedSource>) =>
+  request(`/feeds/${id}`, { method: "PUT", body: JSON.stringify(data) });
+export const deleteFeed = (id: number) =>
+  request(`/feeds/${id}`, { method: "DELETE" });
+
 // Health
 export const healthCheck = () => request<{ status: string }>("/health");

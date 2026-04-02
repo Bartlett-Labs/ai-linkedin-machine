@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import Link from "next/link";
-import { LayoutDashboard, Bell, BarChart3, Clock, Users, FileText, Target, MessageSquare, Shield, Zap, Calendar } from "lucide-react";
+import { LayoutDashboard, Bell, BarChart3, Clock, Users, FileText, Target, MessageSquare, Shield, Zap, Calendar, ListTodo, Play, AlertTriangle, Rss } from "lucide-react";
 
 const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = { title: "LinkedIn Dashboard", description: "LinkedIn automation engine dashboard" };
@@ -12,6 +12,10 @@ const NAV = [
   { href: "/alerts", label: "Alerts", icon: Bell },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/history", label: "History", icon: Clock },
+  { type: "divider" as const, label: "Operations" },
+  { href: "/queue", label: "Queue", icon: ListTodo },
+  { href: "/runs", label: "Pipeline Runs", icon: Play },
+  { href: "/errors", label: "Errors", icon: AlertTriangle },
   { type: "divider" as const, label: "Configuration" },
   { href: "/config/engine", label: "Engine", icon: Zap },
   { href: "/config/schedule", label: "Schedule", icon: Calendar },
@@ -20,6 +24,7 @@ const NAV = [
   { href: "/config/templates", label: "Templates", icon: MessageSquare },
   { href: "/config/rules", label: "Rules", icon: Shield },
   { href: "/config/personas", label: "Personas", icon: Users },
+  { href: "/config/feeds", label: "Feeds", icon: Rss },
 ] as const;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
