@@ -6,7 +6,6 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 
 from engagement.tracker import get_daily_stats, TRACKING_DIR
-from sheets.client import SheetsClient
 
 
 def get_daily_summary(date_str: str = None) -> dict:
@@ -26,7 +25,7 @@ def get_daily_summary(date_str: str = None) -> dict:
     }
 
 
-def get_engagement_trends(sheets: SheetsClient, days: int = 30) -> list[dict]:
+def get_engagement_trends(sheets, days: int = 30) -> list[dict]:
     """Get daily engagement counts from SystemLog over the last N days.
 
     Returns list of {date, comments, posts, replies, likes} dicts.
@@ -70,7 +69,7 @@ def get_engagement_trends(sheets: SheetsClient, days: int = 30) -> list[dict]:
     return result
 
 
-def get_per_persona_stats(sheets: SheetsClient, days: int = 30) -> list[dict]:
+def get_per_persona_stats(sheets, days: int = 30) -> list[dict]:
     """Get per-persona action counts from SystemLog.
 
     Persona is extracted from the Notes column (format: [PersonaName] ...).

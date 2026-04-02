@@ -30,7 +30,6 @@ from config import load_personas
 from engagement.commenter import run_commenter
 from engagement.replier import run_replier
 from engagement.tracker import log_post, log_like
-from sheets.client import SheetsClient
 from sheets.models import QueueStatus, EngineMode, Phase, ScheduleConfig
 from summarization.safety_filter import violates_safety, load_sheet_terms
 from utils import project_path
@@ -53,7 +52,7 @@ def _get_phantom_personas() -> list[dict]:
 
 
 async def run_orchestrator(
-    sheets_client: SheetsClient = None,
+    sheets_client=None,
     headless: bool = True,
 ) -> dict:
     """Run one full orchestration cycle.
@@ -76,13 +75,20 @@ async def run_orchestrator(
         summary["errors"].append("Kill switch active")
         return summary
 
-    # Initialize Sheet client if not provided
+    # Initialize data client if not provided
     if sheets_client is None:
         try:
-            sheets_client = SheetsClient()
+            import os
+            backend = os.getenv("DATA_BACKEND", "postgres").lower()
+            if backend == "postgres":
+                from db.client import DatabaseClient
+                sheets_client = DatabaseClient()
+            else:
+                from sheets.client import SheetsClient
+                sheets_client = SheetsClient()
         except Exception as e:
-            logger.error("Could not connect to Google Sheet: %s", e)
-            summary["errors"].append(f"Sheet connection failed: {e}")
+            logger.error("Could not connect to data backend: %s", e)
+            summary["errors"].append(f"Data backend connection failed: {e}")
             return summary
 
     # Load safety terms from Sheet into the safety filter
@@ -231,7 +237,7 @@ async def run_orchestrator(
 
 
 async def _execute_queue_posts(
-    sheets_client: SheetsClient,
+    sheets_client,
     rate_limits: dict,
     headless: bool,
     dry_run: bool,
@@ -328,7 +334,7 @@ async def _execute_queue_posts(
 
 
 async def _run_phantom_engagement(
-    sheets_client: SheetsClient,
+    sheets_client,
     rate_limits: dict,
     headless: bool,
     dry_run: bool,

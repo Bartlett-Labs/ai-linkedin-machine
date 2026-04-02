@@ -1,7 +1,10 @@
 """
 LLM provider with automatic fallback chain.
 
-Priority: Claude (Anthropic) → OpenAI → Sheet templates (if available).
+Priority: Anker AI Router → Claude (direct API) → OpenAI → Sheet templates.
+
+The Anker AI Router is an OpenAI-compatible gateway (Bearer token auth,
+/v1/chat/completions) that proxies to Vertex AI Claude models.
 
 Safety terms are injected directly into every system prompt so the model
 avoids blocked phrases during generation, not just after.
@@ -15,9 +18,9 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 # Lazy-loaded clients
+_router_client = None
 _anthropic_client = None
 _openai_client = None
-_using_bedrock = False
 
 # Safety preamble injected into every system prompt
 SAFETY_PREAMBLE = """CRITICAL RULES - NEVER VIOLATE THESE:
@@ -32,55 +35,41 @@ SAFETY_PREAMBLE = """CRITICAL RULES - NEVER VIOLATE THESE:
 """
 
 
+def _get_router():
+    """Get the Anker AI Router client (OpenAI-compatible gateway)."""
+    global _router_client
+    if _router_client is None:
+        base_url = os.getenv("AI_ROUTER_BASE_URL")
+        api_key = os.getenv("AI_ROUTER_API_KEY")
+        if base_url and api_key:
+            try:
+                from openai import OpenAI
+                _router_client = OpenAI(
+                    base_url=base_url.rstrip("/") + "/v1",
+                    api_key=api_key,
+                )
+                logger.info("AI Router client initialized [%s]", base_url)
+            except ImportError:
+                logger.warning("openai package not installed (needed for AI Router)")
+        else:
+            logger.debug("AI_ROUTER_BASE_URL or AI_ROUTER_API_KEY not set")
+    return _router_client
+
+
 def _get_anthropic():
-    global _anthropic_client, _using_bedrock
+    """Get a direct Anthropic API client (fallback if router unavailable)."""
+    global _anthropic_client
     if _anthropic_client is None:
-        try:
-            import anthropic
-
-            # Priority 1: Bedrock proxy with auth token (corporate gateway)
-            # Uses ANTHROPIC_BEDROCK_BASE_URL + ANTHROPIC_AUTH_TOKEN
-            bedrock_base_url = os.getenv("ANTHROPIC_BEDROCK_BASE_URL")
-            auth_token = os.getenv("ANTHROPIC_AUTH_TOKEN")
-
-            if bedrock_base_url and auth_token:
-                _anthropic_client = anthropic.Anthropic(
-                    base_url=bedrock_base_url,
-                    api_key=auth_token,
-                )
-                _using_bedrock = True
-                logger.info(
-                    "Anthropic (Claude) client initialized via Bedrock proxy [%s]",
-                    bedrock_base_url,
-                )
-
-            # Priority 2: Standard AWS Bedrock with IAM credentials
-            elif os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION"):
-                aws_region = os.getenv("AWS_REGION", os.getenv("AWS_DEFAULT_REGION"))
-                _anthropic_client = anthropic.AnthropicBedrock(
-                    aws_region=aws_region,
-                )
-                _using_bedrock = True
-                logger.info(
-                    "Anthropic (Claude) client initialized via AWS Bedrock [%s]",
-                    aws_region,
-                )
-
-            # Priority 3: Direct Anthropic API
-            elif os.getenv("ANTHROPIC_API_KEY"):
-                _anthropic_client = anthropic.Anthropic(
-                    api_key=os.getenv("ANTHROPIC_API_KEY"),
-                )
+        api_key = os.getenv("ANTHROPIC_API_KEY")
+        if api_key:
+            try:
+                import anthropic
+                _anthropic_client = anthropic.Anthropic(api_key=api_key)
                 logger.info("Anthropic (Claude) client initialized via direct API")
-
-            else:
-                logger.warning(
-                    "No Anthropic auth configured. Set one of: "
-                    "ANTHROPIC_BEDROCK_BASE_URL+ANTHROPIC_AUTH_TOKEN, "
-                    "AWS_REGION, or ANTHROPIC_API_KEY"
-                )
-        except ImportError:
-            logger.warning("anthropic package not installed (pip install anthropic[bedrock])")
+            except ImportError:
+                logger.warning("anthropic package not installed")
+        else:
+            logger.debug("ANTHROPIC_API_KEY not set")
     return _anthropic_client
 
 
@@ -125,17 +114,22 @@ def generate(
     if inject_safety:
         system_prompt = SAFETY_PREAMBLE + "\n" + system_prompt
 
-    # Attempt 1: Claude (Anthropic)
+    # Attempt 1: Anker AI Router (Claude via OpenAI-compatible gateway)
+    result = _try_router(prompt, system_prompt, max_tokens, temperature)
+    if result:
+        return result
+
+    # Attempt 2: Direct Anthropic API (if API key configured)
     result = _try_claude(prompt, system_prompt, max_tokens, temperature)
     if result:
         return result
 
-    # Attempt 2: OpenAI
+    # Attempt 3: OpenAI
     result = _try_openai(prompt, system_prompt, max_tokens, temperature)
     if result:
         return result
 
-    # Attempt 3: Template fallback
+    # Attempt 4: Template fallback
     if fallback_templates:
         template = random.choice(fallback_templates)
         logger.warning("All LLM providers failed, using template fallback")
@@ -145,24 +139,49 @@ def generate(
     return None
 
 
+def _try_router(
+    prompt: str,
+    system_prompt: str,
+    max_tokens: int,
+    temperature: float,
+) -> Optional[str]:
+    """Try generating via the Anker AI Router (OpenAI-compatible gateway)."""
+    client = _get_router()
+    if not client:
+        return None
+
+    model = os.getenv("AI_ROUTER_MODEL", "vertex_ai/claude-opus-4-6")
+
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+        text = response.choices[0].message.content.strip()
+        logger.debug("AI Router generated %d chars (model=%s)", len(text), model)
+        return text
+    except Exception as e:
+        logger.warning("AI Router generation failed: %s", e)
+        return None
+
+
 def _try_claude(
     prompt: str,
     system_prompt: str,
     max_tokens: int,
     temperature: float,
 ) -> Optional[str]:
-    """Try generating with Claude."""
+    """Try generating with Claude via direct Anthropic API (fallback)."""
     client = _get_anthropic()
     if not client:
         return None
 
-    # Bedrock model IDs use a different format than direct API
-    # Bedrock proxy format: global.anthropic.{model}-v1:0
-    # Direct API format: {model}
-    if _using_bedrock:
-        model = os.getenv("CLAUDE_MODEL", "global.anthropic.claude-opus-4-6-v1:0")
-    else:
-        model = os.getenv("CLAUDE_MODEL", "claude-opus-4-6-20250610")
+    model = os.getenv("CLAUDE_MODEL", "claude-opus-4-6-20250610")
 
     try:
         response = client.messages.create(
@@ -173,10 +192,10 @@ def _try_claude(
             messages=[{"role": "user", "content": prompt}],
         )
         text = response.content[0].text.strip()
-        logger.debug("Claude generated %d chars", len(text))
+        logger.debug("Claude (direct API) generated %d chars", len(text))
         return text
     except Exception as e:
-        logger.warning("Claude generation failed: %s", e)
+        logger.warning("Claude (direct API) generation failed: %s", e)
         return None
 
 

@@ -3,19 +3,34 @@
 import json
 import os
 from functools import lru_cache
-from typing import Annotated
+from typing import Annotated, Union
 
 from fastapi import Depends, Header, HTTPException, status
 
-from sheets.client import SheetsClient
-
 API_KEY = os.getenv("DASHBOARD_API_KEY", "")
+
+# Data backend toggle: "postgres" (default) or "sheets"
+_DATA_BACKEND = os.getenv("DATA_BACKEND", "postgres").lower()
+
+
+def _create_data_client():
+    """Create the appropriate data client based on DATA_BACKEND."""
+    if _DATA_BACKEND == "postgres":
+        from db.client import DatabaseClient
+        return DatabaseClient()
+    else:
+        from sheets.client import SheetsClient
+        return SheetsClient()
 
 
 @lru_cache(maxsize=1)
-def get_sheets_client() -> SheetsClient:
-    """Singleton SheetsClient shared across all routes."""
-    return SheetsClient()
+def get_data_client():
+    """Singleton data client shared across all routes."""
+    return _create_data_client()
+
+
+# Backward compatibility alias
+get_sheets_client = get_data_client
 
 
 def verify_api_key(x_api_key: Annotated[str, Header()] = "") -> str:
@@ -33,7 +48,9 @@ def verify_api_key(x_api_key: Annotated[str, Header()] = "") -> str:
     return x_api_key
 
 
-SheetsClientDep = Annotated[SheetsClient, Depends(get_sheets_client)]
+DataClientDep = Annotated[object, Depends(get_data_client)]
+# Backward compatibility — routes still use SheetsClientDep
+SheetsClientDep = DataClientDep
 AuthDep = Annotated[str, Depends(verify_api_key)]
 
 

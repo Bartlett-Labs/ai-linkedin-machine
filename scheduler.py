@@ -25,7 +25,17 @@ load_dotenv(_PROJECT_ROOT / ".env")
 from utils import project_path
 from scheduling.orchestrator import run_orchestrator
 from scheduling.content_calendar import is_in_posting_window, get_next_posting_time
-from sheets.client import SheetsClient
+
+
+def _get_data_client():
+    """Get the appropriate data client based on DATA_BACKEND env var."""
+    backend = os.getenv("DATA_BACKEND", "postgres").lower()
+    if backend == "postgres":
+        from db.client import DatabaseClient
+        return DatabaseClient()
+    else:
+        from sheets.client import SheetsClient
+        return SheetsClient()
 
 logging.basicConfig(
     level=logging.INFO,
@@ -45,10 +55,10 @@ def main():
 
     sheets_client = None
     try:
-        sheets_client = SheetsClient()
-        logger.info("Connected to Google Sheet")
+        sheets_client = _get_data_client()
+        logger.info("Connected to data backend")
     except Exception as e:
-        logger.warning("Could not connect to Sheet (will retry): %s", e)
+        logger.warning("Could not connect to data backend (will retry): %s", e)
 
     # Load activity windows from Sheet (if tab exists), otherwise use defaults
     activity_windows = []
@@ -72,12 +82,12 @@ def main():
             if in_window:
                 logger.info("In posting window: %s", window_name)
 
-                # Reconnect to Sheet if needed
+                # Reconnect to data backend if needed
                 if sheets_client is None:
                     try:
-                        sheets_client = SheetsClient()
+                        sheets_client = _get_data_client()
                     except Exception as e:
-                        logger.error("Still can't connect to Sheet: %s", e)
+                        logger.error("Still can't connect to data backend: %s", e)
                         time.sleep(CHECK_INTERVAL_SEC)
                         continue
 

@@ -29,9 +29,19 @@ from dotenv import load_dotenv
 load_dotenv(_PROJECT_ROOT / ".env")
 
 from utils import project_path
-from sheets.client import SheetsClient
 from sheets.models import EngineMode
 from scheduling.orchestrator import run_orchestrator
+
+
+def _get_data_client():
+    """Get the appropriate data client based on DATA_BACKEND env var."""
+    backend = os.getenv("DATA_BACKEND", "postgres").lower()
+    if backend == "postgres":
+        from db.client import DatabaseClient
+        return DatabaseClient()
+    else:
+        from sheets.client import SheetsClient
+        return SheetsClient()
 from engagement.commenter import run_commenter
 from engagement.replier import run_replier
 from ingestion.rss_ingest import ingest
@@ -68,12 +78,12 @@ async def main(
               "queue/engagement", "tracking/linkedin"]:
         Path(project_path(d)).mkdir(parents=True, exist_ok=True)
 
-    # Connect to Google Sheet
+    # Connect to data backend (Postgres or Google Sheet)
     sheets_client = None
     try:
-        sheets_client = SheetsClient()
+        sheets_client = _get_data_client()
         engine = sheets_client.get_engine_control()
-        logger.info("Connected to Sheet. Mode: %s, Phase: %s",
+        logger.info("Connected to data backend. Mode: %s, Phase: %s",
                      engine.mode.value, engine.phase.value)
 
         if engine.mode == EngineMode.PAUSED:
@@ -85,7 +95,7 @@ async def main(
             logger.info("Engine in DRY_RUN mode")
 
     except Exception as e:
-        logger.warning("Could not connect to Sheet (running offline): %s", e)
+        logger.warning("Could not connect to data backend (running offline): %s", e)
 
     # Handle single-action modes
     if comments_only:
