@@ -5,8 +5,8 @@ from typing import Optional
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from api.deps import AuthDep, SheetsClientDep
-from sheets.client import TAB_COMMENT_TEMPLATES
+from api.deps import AuthDep, DataClientDep
+from db.client import TAB_COMMENT_TEMPLATES
 
 router = APIRouter(prefix="/templates", tags=["templates"])
 
@@ -44,12 +44,12 @@ class CommentTemplateUpdate(BaseModel):
 
 @router.get("", response_model=list[CommentTemplateResponse])
 def get_comment_templates(
-    sheets: SheetsClientDep,
+    client: DataClientDep,
     _auth: AuthDep,
     persona: str = "all",
 ):
     """Get all comment templates, optionally filtered by persona."""
-    templates = sheets.get_comment_templates(persona=persona)
+    templates = client.get_comment_templates(persona=persona)
     return [
         CommentTemplateResponse(
             template_id=t.template_id,
@@ -68,14 +68,14 @@ def get_comment_templates(
 @router.post("", response_model=dict)
 def create_comment_template(
     body: CommentTemplateCreate,
-    sheets: SheetsClientDep,
+    client: DataClientDep,
     _auth: AuthDep,
 ):
     """Add a new comment template."""
-    existing = sheets.get_comment_templates(persona="all")
+    existing = client.get_comment_templates(persona="all")
     next_id = max((int(t.template_id) for t in existing if t.template_id.isdigit()), default=0) + 1
 
-    sheets.append_tab_row(
+    client.append_tab_row(
         TAB_COMMENT_TEMPLATES,
         _TEMPLATES_HEADER,
         {
@@ -95,11 +95,11 @@ def create_comment_template(
 def update_comment_template(
     template_id: str,
     body: CommentTemplateUpdate,
-    sheets: SheetsClientDep,
+    client: DataClientDep,
     _auth: AuthDep,
 ):
     """Update a comment template by ID."""
-    header, data, _ = sheets.get_tab_data(TAB_COMMENT_TEMPLATES, "A:G")
+    header, data, _ = client.get_tab_data(TAB_COMMENT_TEMPLATES, "A:G")
     for row in data:
         row_idx = int(row[0])
         row_dict = dict(zip(header, row[1:]))
@@ -117,7 +117,7 @@ def update_comment_template(
                 updates["ExampleUse"] = body.example_use
             if body.persona is not None:
                 updates["Persona"] = body.persona
-            sheets.update_tab_row(TAB_COMMENT_TEMPLATES, row_idx, header, updates)
+            client.update_tab_row(TAB_COMMENT_TEMPLATES, row_idx, header, updates)
             return {"status": "updated", "template_id": template_id}
 
     return {"status": "not_found", "template_id": template_id}
@@ -126,15 +126,15 @@ def update_comment_template(
 @router.delete("/{template_id}", response_model=dict)
 def delete_comment_template(
     template_id: str,
-    sheets: SheetsClientDep,
+    client: DataClientDep,
     _auth: AuthDep,
 ):
     """Delete a comment template by ID."""
-    header, data, _ = sheets.get_tab_data(TAB_COMMENT_TEMPLATES, "A:G")
+    header, data, _ = client.get_tab_data(TAB_COMMENT_TEMPLATES, "A:G")
     for row in data:
         row_idx = int(row[0])
         row_dict = dict(zip(header, row[1:]))
         if row_dict.get("ID", "").strip() == template_id:
-            sheets.delete_tab_row(TAB_COMMENT_TEMPLATES, row_idx, len(header))
+            client.delete_tab_row(TAB_COMMENT_TEMPLATES, row_idx, len(header))
             return {"status": "deleted", "template_id": template_id}
     return {"status": "not_found", "template_id": template_id}

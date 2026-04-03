@@ -54,7 +54,7 @@ def verify_api_key(x_api_key: Annotated[str, Header()] = "") -> str:
 
 
 DataClientDep = Annotated[object, Depends(get_data_client)]
-# Backward compatibility — routes still use SheetsClientDep
+# Backward compatibility — external consumers may still reference SheetsClientDep
 SheetsClientDep = DataClientDep
 AuthDep = Annotated[str, Depends(verify_api_key)]
 

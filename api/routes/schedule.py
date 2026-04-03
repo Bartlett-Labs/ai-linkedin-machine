@@ -6,9 +6,9 @@ from typing import Optional
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from api.deps import AuthDep, SheetsClientDep
+from api.deps import AuthDep, DataClientDep
 from scheduling.content_calendar import get_weekly_plan, POSTING_WINDOWS
-from sheets.client import TAB_ACTIVITY_WINDOWS, TAB_SCHEDULE_CONTROL
+from db.client import TAB_ACTIVITY_WINDOWS
 
 router = APIRouter(prefix="/schedule", tags=["schedule"])
 
@@ -70,9 +70,9 @@ _ACTIVITY_HEADER = ["WindowName", "StartHour", "EndHour", "DaysOfWeek", "Enabled
 
 
 @router.get("/windows", response_model=list[ActivityWindowResponse])
-def get_activity_windows(sheets: SheetsClientDep, _auth: AuthDep):
+def get_activity_windows(client: DataClientDep, _auth: AuthDep):
     """Get all activity windows."""
-    windows = sheets.get_activity_windows()
+    windows = client.get_activity_windows()
     if not windows:
         # Return hardcoded defaults
         return [
@@ -94,11 +94,11 @@ def get_activity_windows(sheets: SheetsClientDep, _auth: AuthDep):
 @router.post("/windows", response_model=dict)
 def create_activity_window(
     body: ActivityWindowCreate,
-    sheets: SheetsClientDep,
+    client: DataClientDep,
     _auth: AuthDep,
 ):
     """Add a new activity window."""
-    sheets.append_tab_row(
+    client.append_tab_row(
         TAB_ACTIVITY_WINDOWS,
         _ACTIVITY_HEADER,
         {
@@ -113,9 +113,9 @@ def create_activity_window(
 
 
 @router.get("/configs", response_model=list[ScheduleConfigResponse])
-def get_schedule_configs(sheets: SheetsClientDep, _auth: AuthDep):
+def get_schedule_configs(client: DataClientDep, _auth: AuthDep):
     """Get per-phase schedule configurations."""
-    configs = sheets.get_schedule_configs()
+    configs = client.get_schedule_configs()
     return [
         ScheduleConfigResponse(
             mode=c.mode,
@@ -135,7 +135,7 @@ def get_schedule_configs(sheets: SheetsClientDep, _auth: AuthDep):
 def update_schedule_config(
     mode: str,
     body: ScheduleConfigUpdate,
-    sheets: SheetsClientDep,
+    client: DataClientDep,
     _auth: AuthDep,
 ):
     """Update a schedule config by mode name."""
@@ -154,15 +154,15 @@ def update_schedule_config(
         updates["MaxLikesPerDay"] = str(body.max_likes_per_day)
 
     if updates:
-        sheets.update_schedule_config(mode, updates)
+        client.update_schedule_config(mode, updates)
 
     return {"status": "updated", "mode": mode}
 
 
 @router.get("/weekly-plan", response_model=list[WeeklyPlanDay])
-def get_weekly_plan_route(sheets: SheetsClientDep, _auth: AuthDep):
+def get_weekly_plan_route(client: DataClientDep, _auth: AuthDep):
     """Get the current weekly content plan."""
-    engine = sheets.get_engine_control()
-    windows = sheets.get_activity_windows()
+    engine = client.get_engine_control()
+    windows = client.get_activity_windows()
     plan = get_weekly_plan(phase=engine.phase.value, schedule_windows=windows or None)
     return [WeeklyPlanDay(**day) for day in plan]

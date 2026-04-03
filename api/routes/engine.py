@@ -6,7 +6,7 @@ from typing import Optional
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from api.deps import AuthDep, SheetsClientDep
+from api.deps import AuthDep, DataClientDep
 
 router = APIRouter(prefix="/engine", tags=["engine"])
 
@@ -42,9 +42,9 @@ _FIELD_TO_SHEET_KEY = {
 
 
 @router.get("", response_model=EngineControlResponse)
-def get_engine_control(sheets: SheetsClientDep, _auth: AuthDep):
+def get_engine_control(client: DataClientDep, _auth: AuthDep):
     """Get current engine control settings."""
-    engine = sheets.get_engine_control()
+    engine = client.get_engine_control()
     return EngineControlResponse(
         mode=engine.mode.value,
         phase=engine.phase.value,
@@ -59,7 +59,7 @@ def get_engine_control(sheets: SheetsClientDep, _auth: AuthDep):
 @router.put("", response_model=EngineControlResponse)
 def update_engine_control(
     body: EngineControlUpdate,
-    sheets: SheetsClientDep,
+    client: DataClientDep,
     _auth: AuthDep,
 ):
     """Update engine control settings."""
@@ -73,6 +73,6 @@ def update_engine_control(
                 updates[sheet_key] = str(value)
 
     if updates:
-        sheets.update_engine_control(updates)
+        client.update_engine_control(updates)
 
     return get_engine_control(sheets, _auth)

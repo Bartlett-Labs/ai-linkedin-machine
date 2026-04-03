@@ -25,13 +25,13 @@ def get_daily_summary(date_str: str = None) -> dict:
     }
 
 
-def get_engagement_trends(sheets, days: int = 30) -> list[dict]:
+def get_engagement_trends(client, days: int = 30) -> list[dict]:
     """Get daily engagement counts from SystemLog over the last N days.
 
     Returns list of {date, comments, posts, replies, likes} dicts.
     """
     cutoff = (datetime.utcnow() - timedelta(days=days)).isoformat()
-    entries, _ = sheets.get_system_log(limit=10000, offset=0, date_from=cutoff)
+    entries, _ = client.get_system_log(limit=10000, offset=0, date_from=cutoff)
 
     # Aggregate by date
     daily = defaultdict(lambda: {"comments": 0, "posts": 0, "replies": 0, "likes": 0})
@@ -69,13 +69,13 @@ def get_engagement_trends(sheets, days: int = 30) -> list[dict]:
     return result
 
 
-def get_per_persona_stats(sheets, days: int = 30) -> list[dict]:
+def get_per_persona_stats(client, days: int = 30) -> list[dict]:
     """Get per-persona action counts from SystemLog.
 
     Persona is extracted from the Notes column (format: [PersonaName] ...).
     """
     cutoff = (datetime.utcnow() - timedelta(days=days)).isoformat()
-    entries, _ = sheets.get_system_log(limit=10000, offset=0, date_from=cutoff)
+    entries, _ = client.get_system_log(limit=10000, offset=0, date_from=cutoff)
 
     persona_counts = defaultdict(lambda: {"total_actions": 0, "comments": 0, "posts": 0, "replies": 0})
 

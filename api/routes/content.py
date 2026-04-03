@@ -5,8 +5,8 @@ from typing import Optional
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from api.deps import AuthDep, SheetsClientDep
-from sheets.client import TAB_CONTENT_BANK, TAB_REPOST_BANK
+from api.deps import AuthDep, DataClientDep
+from db.client import TAB_CONTENT_BANK, TAB_REPOST_BANK
 
 router = APIRouter(prefix="/content", tags=["content"])
 
@@ -69,12 +69,12 @@ class RepostBankItemCreate(BaseModel):
 
 @router.get("/bank", response_model=list[ContentBankItemResponse])
 def get_content_bank(
-    sheets: SheetsClientDep,
+    client: DataClientDep,
     _auth: AuthDep,
     ready_only: bool = False,
 ):
     """Get all content bank items."""
-    items = sheets.get_content_bank(ready_only=ready_only)
+    items = client.get_content_bank(ready_only=ready_only)
     return [
         ContentBankItemResponse(
             item_id=i.item_id,
@@ -93,15 +93,15 @@ def get_content_bank(
 @router.post("/bank", response_model=dict)
 def create_content_bank_item(
     body: ContentBankItemCreate,
-    sheets: SheetsClientDep,
+    client: DataClientDep,
     _auth: AuthDep,
 ):
     """Add a new content bank item."""
     # Get next ID
-    existing = sheets.get_content_bank(ready_only=False)
+    existing = client.get_content_bank(ready_only=False)
     next_id = max((i.item_id for i in existing), default=0) + 1
 
-    sheets.append_tab_row(
+    client.append_tab_row(
         TAB_CONTENT_BANK,
         _CONTENT_HEADER,
         {
@@ -122,11 +122,11 @@ def create_content_bank_item(
 def update_content_bank_item(
     item_id: int,
     body: ContentBankItemUpdate,
-    sheets: SheetsClientDep,
+    client: DataClientDep,
     _auth: AuthDep,
 ):
     """Update a content bank item by ID."""
-    header, data, _ = sheets.get_tab_data(TAB_CONTENT_BANK, "A:H")
+    header, data, _ = client.get_tab_data(TAB_CONTENT_BANK, "A:H")
     for row in data:
         row_idx = int(row[0])
         row_dict = dict(zip(header, row[1:]))
@@ -144,7 +144,7 @@ def update_content_bank_item(
                 updates["Ready"] = "TRUE" if body.ready else "FALSE"
             if body.notes is not None:
                 updates["Notes"] = body.notes
-            sheets.update_tab_row(TAB_CONTENT_BANK, row_idx, header, updates)
+            client.update_tab_row(TAB_CONTENT_BANK, row_idx, header, updates)
             return {"status": "updated", "item_id": item_id}
 
     return {"status": "not_found", "item_id": item_id}
@@ -153,16 +153,16 @@ def update_content_bank_item(
 @router.delete("/bank/{item_id}", response_model=dict)
 def delete_content_bank_item(
     item_id: int,
-    sheets: SheetsClientDep,
+    client: DataClientDep,
     _auth: AuthDep,
 ):
     """Delete a content bank item by ID."""
-    header, data, _ = sheets.get_tab_data(TAB_CONTENT_BANK, "A:H")
+    header, data, _ = client.get_tab_data(TAB_CONTENT_BANK, "A:H")
     for row in data:
         row_idx = int(row[0])
         row_dict = dict(zip(header, row[1:]))
         if int(float(row_dict.get("ID", 0) or 0)) == item_id:
-            sheets.delete_tab_row(TAB_CONTENT_BANK, row_idx, len(header))
+            client.delete_tab_row(TAB_CONTENT_BANK, row_idx, len(header))
             return {"status": "deleted", "item_id": item_id}
     return {"status": "not_found", "item_id": item_id}
 
@@ -172,9 +172,9 @@ def delete_content_bank_item(
 # ------------------------------------------------------------------
 
 @router.get("/reposts", response_model=list[RepostBankItemResponse])
-def get_repost_bank(sheets: SheetsClientDep, _auth: AuthDep):
+def get_repost_bank(client: DataClientDep, _auth: AuthDep):
     """Get all repost bank items."""
-    items = sheets.get_repost_bank()
+    items = client.get_repost_bank()
     return [
         RepostBankItemResponse(
             item_id=i.item_id,
@@ -193,14 +193,14 @@ def get_repost_bank(sheets: SheetsClientDep, _auth: AuthDep):
 @router.post("/reposts", response_model=dict)
 def create_repost_bank_item(
     body: RepostBankItemCreate,
-    sheets: SheetsClientDep,
+    client: DataClientDep,
     _auth: AuthDep,
 ):
     """Add a new repost bank item."""
-    existing = sheets.get_repost_bank()
+    existing = client.get_repost_bank()
     next_id = max((i.item_id for i in existing), default=0) + 1
 
-    sheets.append_tab_row(
+    client.append_tab_row(
         TAB_REPOST_BANK,
         _REPOST_HEADER,
         {

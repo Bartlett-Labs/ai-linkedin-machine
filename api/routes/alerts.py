@@ -8,7 +8,7 @@ from typing import Optional
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 
-from api.deps import AuthDep, SheetsClientDep
+from api.deps import AuthDep, DataClientDep
 from api.services.alert_service import AlertManager, EngagementAlert
 
 router = APIRouter(prefix="/alerts", tags=["alerts"])

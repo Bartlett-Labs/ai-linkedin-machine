@@ -6,7 +6,7 @@ from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from api.deps import AuthDep, SheetsClientDep
+from api.deps import AuthDep, DataClientDep
 
 router = APIRouter(prefix="/history", tags=["history"])
 
@@ -30,7 +30,7 @@ class HistoryResponse(BaseModel):
 
 @router.get("", response_model=HistoryResponse)
 def get_history(
-    sheets: SheetsClientDep,
+    client: DataClientDep,
     _auth: AuthDep,
     limit: int = 50,
     offset: int = 0,
@@ -40,7 +40,7 @@ def get_history(
     date_to: Optional[str] = None,
 ):
     """Get SystemLog entries with pagination and filtering."""
-    entries, total = sheets.get_system_log(
+    entries, total = client.get_system_log(
         limit=limit,
         offset=offset,
         action_filter=action,
@@ -69,7 +69,7 @@ def get_history(
 
 @router.get("/export")
 def export_history_csv(
-    sheets: SheetsClientDep,
+    client: DataClientDep,
     _auth: AuthDep,
     action: Optional[str] = None,
     module: Optional[str] = None,
@@ -77,7 +77,7 @@ def export_history_csv(
     date_to: Optional[str] = None,
 ):
     """Export SystemLog as CSV."""
-    entries, _ = sheets.get_system_log(
+    entries, _ = client.get_system_log(
         limit=10000,
         offset=0,
         action_filter=action,

@@ -5,8 +5,8 @@ from typing import Optional
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from api.deps import AuthDep, SheetsClientDep
-from sheets.client import TAB_COMMENT_TARGETS
+from api.deps import AuthDep, DataClientDep
+from db.client import TAB_COMMENT_TARGETS
 
 router = APIRouter(prefix="/targets", tags=["targets"])
 
@@ -40,12 +40,12 @@ class CommentTargetUpdate(BaseModel):
 
 @router.get("", response_model=list[CommentTargetResponse])
 def get_comment_targets(
-    sheets: SheetsClientDep,
+    client: DataClientDep,
     _auth: AuthDep,
     category: Optional[str] = None,
 ):
     """Get all comment targets, optionally filtered by category."""
-    targets = sheets.get_comment_targets()
+    targets = client.get_comment_targets()
     if category:
         targets = [t for t in targets if t.category.lower() == category.lower()]
     return [
@@ -64,14 +64,14 @@ def get_comment_targets(
 @router.post("", response_model=dict)
 def create_comment_target(
     body: CommentTargetCreate,
-    sheets: SheetsClientDep,
+    client: DataClientDep,
     _auth: AuthDep,
 ):
     """Add a new comment target."""
-    existing = sheets.get_comment_targets()
+    existing = client.get_comment_targets()
     next_id = len(existing) + 1
 
-    sheets.append_tab_row(
+    client.append_tab_row(
         TAB_COMMENT_TARGETS,
         _TARGETS_HEADER,
         {
@@ -91,11 +91,11 @@ def create_comment_target(
 def update_comment_target(
     target_name: str,
     body: CommentTargetUpdate,
-    sheets: SheetsClientDep,
+    client: DataClientDep,
     _auth: AuthDep,
 ):
     """Update a comment target by name."""
-    header, data, _ = sheets.get_tab_data(TAB_COMMENT_TARGETS, "A:G")
+    header, data, _ = client.get_tab_data(TAB_COMMENT_TARGETS, "A:G")
     for row in data:
         row_idx = int(row[0])
         row_dict = dict(zip(header, row[1:]))
@@ -111,7 +111,7 @@ def update_comment_target(
                 updates["Priority"] = str(body.priority)
             if body.notes is not None:
                 updates["Notes"] = body.notes
-            sheets.update_tab_row(TAB_COMMENT_TARGETS, row_idx, header, updates)
+            client.update_tab_row(TAB_COMMENT_TARGETS, row_idx, header, updates)
             return {"status": "updated", "name": target_name}
 
     return {"status": "not_found", "name": target_name}
@@ -120,15 +120,15 @@ def update_comment_target(
 @router.delete("/{target_name}", response_model=dict)
 def delete_comment_target(
     target_name: str,
-    sheets: SheetsClientDep,
+    client: DataClientDep,
     _auth: AuthDep,
 ):
     """Delete a comment target by name."""
-    header, data, _ = sheets.get_tab_data(TAB_COMMENT_TARGETS, "A:G")
+    header, data, _ = client.get_tab_data(TAB_COMMENT_TARGETS, "A:G")
     for row in data:
         row_idx = int(row[0])
         row_dict = dict(zip(header, row[1:]))
         if row_dict.get("Name", "").strip().lower() == target_name.lower():
-            sheets.delete_tab_row(TAB_COMMENT_TARGETS, row_idx, len(header))
+            client.delete_tab_row(TAB_COMMENT_TARGETS, row_idx, len(header))
             return {"status": "deleted", "name": target_name}
     return {"status": "not_found", "name": target_name}

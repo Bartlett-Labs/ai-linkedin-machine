@@ -5,8 +5,8 @@ from typing import Optional
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from api.deps import AuthDep, SheetsClientDep
-from sheets.client import TAB_REPLY_RULES, TAB_SAFETY_TERMS
+from api.deps import AuthDep, DataClientDep
+from db.client import TAB_REPLY_RULES, TAB_SAFETY_TERMS
 
 router = APIRouter(prefix="/rules", tags=["rules"])
 
@@ -43,9 +43,9 @@ class SafetyTermCreate(BaseModel):
 # ------------------------------------------------------------------
 
 @router.get("/reply", response_model=list[ReplyRuleResponse])
-def get_reply_rules(sheets: SheetsClientDep, _auth: AuthDep):
+def get_reply_rules(client: DataClientDep, _auth: AuthDep):
     """Get all reply rules."""
-    rules = sheets.get_reply_rules()
+    rules = client.get_reply_rules()
     return [
         ReplyRuleResponse(
             condition_type=r.condition_type,
@@ -60,11 +60,11 @@ def get_reply_rules(sheets: SheetsClientDep, _auth: AuthDep):
 @router.post("/reply", response_model=dict)
 def create_reply_rule(
     body: ReplyRuleCreate,
-    sheets: SheetsClientDep,
+    client: DataClientDep,
     _auth: AuthDep,
 ):
     """Add a new reply rule."""
-    sheets.append_tab_row(
+    client.append_tab_row(
         TAB_REPLY_RULES,
         _RULES_HEADER,
         {
@@ -80,16 +80,16 @@ def create_reply_rule(
 @router.delete("/reply/{trigger}", response_model=dict)
 def delete_reply_rule(
     trigger: str,
-    sheets: SheetsClientDep,
+    client: DataClientDep,
     _auth: AuthDep,
 ):
     """Delete a reply rule by trigger text."""
-    header, data, _ = sheets.get_tab_data(TAB_REPLY_RULES, "A:D")
+    header, data, _ = client.get_tab_data(TAB_REPLY_RULES, "A:D")
     for row in data:
         row_idx = int(row[0])
         row_dict = dict(zip(header, row[1:]))
         if row_dict.get("Trigger", "").strip().lower() == trigger.lower():
-            sheets.delete_tab_row(TAB_REPLY_RULES, row_idx, len(header))
+            client.delete_tab_row(TAB_REPLY_RULES, row_idx, len(header))
             return {"status": "deleted", "trigger": trigger}
     return {"status": "not_found", "trigger": trigger}
 
@@ -99,20 +99,20 @@ def delete_reply_rule(
 # ------------------------------------------------------------------
 
 @router.get("/safety", response_model=list[SafetyTermResponse])
-def get_safety_terms(sheets: SheetsClientDep, _auth: AuthDep):
+def get_safety_terms(client: DataClientDep, _auth: AuthDep):
     """Get all safety terms."""
-    terms = sheets.get_safety_terms()
+    terms = client.get_safety_terms()
     return [SafetyTermResponse(term=t.term, response=t.response) for t in terms]
 
 
 @router.post("/safety", response_model=dict)
 def create_safety_term(
     body: SafetyTermCreate,
-    sheets: SheetsClientDep,
+    client: DataClientDep,
     _auth: AuthDep,
 ):
     """Add a new safety term."""
-    sheets.append_tab_row(
+    client.append_tab_row(
         TAB_SAFETY_TERMS,
         _SAFETY_HEADER,
         {"Term": body.term, "Response": body.response},
@@ -123,15 +123,15 @@ def create_safety_term(
 @router.delete("/safety/{term}", response_model=dict)
 def delete_safety_term(
     term: str,
-    sheets: SheetsClientDep,
+    client: DataClientDep,
     _auth: AuthDep,
 ):
     """Delete a safety term."""
-    header, data, _ = sheets.get_tab_data(TAB_SAFETY_TERMS, "A:B")
+    header, data, _ = client.get_tab_data(TAB_SAFETY_TERMS, "A:B")
     for row in data:
         row_idx = int(row[0])
         row_dict = dict(zip(header, row[1:]))
         if row_dict.get("Term", "").strip().lower() == term.lower():
-            sheets.delete_tab_row(TAB_SAFETY_TERMS, row_idx, len(header))
+            client.delete_tab_row(TAB_SAFETY_TERMS, row_idx, len(header))
             return {"status": "deleted", "term": term}
     return {"status": "not_found", "term": term}
