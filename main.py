@@ -146,6 +146,7 @@ async def main(
     summary = await run_orchestrator(
         sheets_client=sheets_client,
         headless=headless,
+        dry_run=dry_run,
     )
 
     logger.info("Pipeline complete! Summary: %s", summary)

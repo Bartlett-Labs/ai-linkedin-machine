@@ -54,6 +54,7 @@ def _get_phantom_personas() -> list[dict]:
 async def run_orchestrator(
     sheets_client=None,
     headless: bool = True,
+    dry_run: bool = False,
 ) -> dict:
     """Run one full orchestration cycle.
 
@@ -121,7 +122,7 @@ async def run_orchestrator(
         sheets_client.log("ORCHESTRATOR", status="SKIPPED", details="Engine paused")
         return summary
 
-    dry_run = engine.mode == EngineMode.DRY_RUN
+    dry_run = dry_run or engine.mode == EngineMode.DRY_RUN
     if dry_run:
         logger.info("Running in DRY RUN mode")
 
