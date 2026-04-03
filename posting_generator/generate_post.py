@@ -70,12 +70,26 @@ def generate_post(summary_path):
 
 
 def run_all():
+    """Generate posts from summaries, skipping already-generated ones."""
     if not os.path.exists(SUMMARIES_DIR):
         logger.warning("No summaries directory: %s", SUMMARIES_DIR)
         return
-    for file in os.listdir(SUMMARIES_DIR):
-        if file.endswith(".md"):
-            generate_post(os.path.join(SUMMARIES_DIR, file))
+
+    summaries = [f for f in os.listdir(SUMMARIES_DIR) if f.endswith(".md")]
+    skipped = 0
+    generated = 0
+
+    for file in summaries:
+        # Skip if post already exists for this summary
+        post_name = file.replace(".md", "_post.txt")
+        if os.path.exists(os.path.join(POSTS_DIR, post_name)):
+            skipped += 1
+            continue
+        generate_post(os.path.join(SUMMARIES_DIR, file))
+        generated += 1
+
+    logger.info("Post generation complete: %d generated, %d skipped (already exist)",
+                generated, skipped)
 
 
 if __name__ == "__main__":
