@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useApi } from "@/hooks/use-api";
 import { useAlerts } from "@/hooks/use-alerts";
+import { usePipelineStatus } from "@/hooks/use-pipeline-status";
 import { getEngine, getTodaySummary, getWeeklyPlan, updateEngine } from "@/lib/api";
 import type { EngineControl, DailySummary, WeeklyPlanDay } from "@/lib/api";
-import { Activity, MessageSquare, FileText, Reply, Clock } from "lucide-react";
+import { Activity, MessageSquare, FileText, Reply, Clock, Play, CheckCircle2, XCircle, Loader2, Wifi } from "lucide-react";
 
 const MODE_COLORS: Record<string, string> = { Live: "bg-green-500", DryRun: "bg-yellow-500", Paused: "bg-red-500" };
 
@@ -16,6 +17,7 @@ export default function DashboardPage() {
   const stats = useApi<DailySummary>(getTodaySummary);
   const plan = useApi<WeeklyPlanDay[]>(getWeeklyPlan);
   const alerts = useAlerts();
+  const pipeline = usePipelineStatus();
 
   return (
     <div className="space-y-6">
@@ -60,6 +62,58 @@ export default function DashboardPage() {
           {engine.loading && <p className="text-sm text-muted-foreground">Loading...</p>}
         </CardContent>
       </Card>
+      {/* Pipeline Status (real-time via WebSocket) */}
+      {pipeline.connected && (
+        <Card className={pipeline.isRunning ? "border-blue-400/20" : undefined}>
+          <CardContent className="py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {pipeline.isRunning ? (
+                  <>
+                    <Loader2 className="h-5 w-5 text-blue-400 animate-spin" />
+                    <div>
+                      <p className="text-sm font-medium">Pipeline Running — Run #{pipeline.activeRun?.id}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {pipeline.activeRun?.trigger_type} &middot; {pipeline.activeRun?.phase}
+                        {pipeline.liveOutput.length > 0 && (
+                          <span className="ml-2 text-blue-400">{pipeline.liveOutput[pipeline.liveOutput.length - 1]}</span>
+                        )}
+                      </p>
+                    </div>
+                  </>
+                ) : pipeline.recentRuns.length > 0 ? (
+                  <>
+                    {pipeline.recentRuns[0].status === "completed" ? (
+                      <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+                    ) : pipeline.recentRuns[0].status === "failed" ? (
+                      <XCircle className="h-5 w-5 text-red-400" />
+                    ) : (
+                      <Play className="h-5 w-5 text-muted-foreground" />
+                    )}
+                    <div>
+                      <p className="text-sm font-medium">
+                        Last Run #{pipeline.recentRuns[0].id} — {pipeline.recentRuns[0].status}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {pipeline.recentRuns[0].summary?.slice(0, 80) || "No summary"}
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-5 w-5 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">No pipeline runs yet</p>
+                  </>
+                )}
+              </div>
+              <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400">
+                <Wifi className="h-3 w-3" />Live
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Quick Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {([

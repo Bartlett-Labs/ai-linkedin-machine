@@ -22,3 +22,31 @@ export function createAlertSocket(
   };
   return ws;
 }
+
+// --- Pipeline status WebSocket ---
+
+import type { PipelineRun } from "@/lib/api";
+
+export type PipelineStatusMessage = {
+  type: "pipeline_status";
+  active_run: PipelineRun | null;
+  active_run_id: number | null;
+  recent_runs: PipelineRun[];
+  running_task_ids: number[];
+  live_output: string[];
+};
+
+export function createPipelineSocket(
+  onMessage: (msg: PipelineStatusMessage) => void,
+  onError?: (err: Event) => void,
+) {
+  const ws = new WebSocket(`${WS_BASE}/api/pipeline/ws`);
+  ws.onmessage = (event) => {
+    try { onMessage(JSON.parse(event.data)); } catch {}
+  };
+  ws.onerror = (err) => onError?.(err);
+  ws.onclose = () => {
+    setTimeout(() => createPipelineSocket(onMessage, onError), 5000);
+  };
+  return ws;
+}

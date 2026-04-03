@@ -24,6 +24,9 @@ logger = logging.getLogger(__name__)
 # Track running pipeline tasks to prevent GC and enable status checks
 _running_tasks: dict[int, asyncio.Task] = {}
 
+# Live output buffer for streaming to WebSocket clients
+_live_output: dict[int, list[str]] = {}
+
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
@@ -68,10 +71,30 @@ def _parse_action_counts(output: str) -> dict:
     return counts
 
 
+async def _read_stream(stream, buf: list[str], max_lines: int = 200) -> str:
+    """Read an async stream line-by-line into a buffer, return full output."""
+    full = []
+    while True:
+        line = await stream.readline()
+        if not line:
+            break
+        text = line.decode("utf-8", errors="replace").rstrip("\n")
+        full.append(text)
+        buf.append(text)
+        # Keep buffer from growing unbounded (rolling window)
+        while len(buf) > max_lines:
+            buf.pop(0)
+    return "\n".join(full)
+
+
 async def _execute_pipeline(run_id: int, body: RunTriggerRequest, client) -> None:
-    """Run main.py as a subprocess and update the pipeline run record on completion."""
+    """Run main.py as a subprocess and update the pipeline run record on completion.
+
+    Streams stdout line-by-line into _live_output[run_id] so the WebSocket
+    can broadcast live progress to connected dashboard clients.
+    """
     python = sys.executable
-    cmd = [python, os.path.join(_PROJECT_ROOT, "main.py")]
+    cmd = [python, "-u", os.path.join(_PROJECT_ROOT, "main.py")]
 
     if body.dry_run:
         cmd.append("--dry-run")
@@ -85,6 +108,7 @@ async def _execute_pipeline(run_id: int, body: RunTriggerRequest, client) -> Non
         cmd.append("--replies-only")
 
     logger.info("Pipeline run #%d: executing %s", run_id, " ".join(cmd))
+    _live_output[run_id] = []
 
     try:
         process = await asyncio.create_subprocess_exec(
@@ -94,14 +118,20 @@ async def _execute_pipeline(run_id: int, body: RunTriggerRequest, client) -> Non
             cwd=_PROJECT_ROOT,
         )
 
-        stdout_bytes, stderr_bytes = await process.communicate()
-        stdout = stdout_bytes.decode("utf-8", errors="replace")
-        stderr = stderr_bytes.decode("utf-8", errors="replace")
+        stdout_buf = _live_output[run_id]
+        stderr_lines: list[str] = []
+
+        # Read stdout and stderr concurrently, streaming into live buffer
+        stdout_text, stderr_text = await asyncio.gather(
+            _read_stream(process.stdout, stdout_buf),
+            _read_stream(process.stderr, stderr_lines),
+        )
+
+        await process.wait()
 
         if process.returncode == 0:
-            counts = _parse_action_counts(stdout)
-            # Keep last 2000 chars of output as summary
-            summary = stdout[-2000:] if len(stdout) > 2000 else stdout
+            counts = _parse_action_counts(stdout_text)
+            summary = stdout_text[-2000:] if len(stdout_text) > 2000 else stdout_text
             client.complete_pipeline_run(
                 run_id,
                 status="completed",
@@ -113,7 +143,7 @@ async def _execute_pipeline(run_id: int, body: RunTriggerRequest, client) -> Non
             )
             logger.info("Pipeline run #%d completed: %s", run_id, counts)
         else:
-            error_tail = stderr[-1000:] if len(stderr) > 1000 else stderr
+            error_tail = stderr_text[-1000:] if len(stderr_text) > 1000 else stderr_text
             client.complete_pipeline_run(
                 run_id,
                 status="failed",
@@ -138,6 +168,8 @@ async def _execute_pipeline(run_id: int, body: RunTriggerRequest, client) -> Non
         )
     finally:
         _running_tasks.pop(run_id, None)
+        # Keep live output for 60s after completion for late-connecting clients
+        asyncio.get_event_loop().call_later(60, _live_output.pop, run_id, None)
 
 
 @router.get("/runs")
@@ -286,11 +318,20 @@ async def pipeline_websocket(websocket: WebSocket):
             runs = client.get_pipeline_runs(limit=5)
             active = [r for r in runs if r["status"] in ("running", "pending")]
 
+            # Attach live output lines for any active run
+            live_lines: list[str] = []
+            active_run_id: int | None = None
+            if active:
+                active_run_id = active[0]["id"]
+                live_lines = list(_live_output.get(active_run_id, []))
+
             payload = {
                 "type": "pipeline_status",
                 "active_run": active[0] if active else None,
+                "active_run_id": active_run_id,
                 "recent_runs": runs[:5],
                 "running_task_ids": list(_running_tasks.keys()),
+                "live_output": live_lines[-50:],  # Last 50 lines to keep payload small
             }
             await websocket.send_json(payload)
 

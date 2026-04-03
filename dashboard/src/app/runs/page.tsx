@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { getPipelineRuns, triggerPipelineRun, type PipelineRun } from "@/lib/api";
+import { usePipelineStatus } from "@/hooks/use-pipeline-status";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import {
   Play, RefreshCw, Clock, CheckCircle2, XCircle,
   Loader2, MessageSquare, Send, Ghost, Heart,
-  ChevronDown, ChevronUp, Zap, Activity,
+  ChevronDown, ChevronUp, Zap, Activity, Terminal, Wifi, WifiOff,
 } from "lucide-react";
 
 const RUN_STATUS: Record<string, { label: string; color: string; bg: string; border: string; icon: typeof CheckCircle2 }> = {
@@ -60,6 +61,33 @@ function StatPill({ icon: Icon, value, label, color }: { icon: typeof Send; valu
   );
 }
 
+function LiveOutputConsole({ lines }: { lines: string[] }) {
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [lines.length]);
+
+  if (lines.length === 0) return null;
+  return (
+    <div className="rounded-lg border border-blue-400/20 bg-black/40 overflow-hidden">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-blue-400/10 bg-blue-400/5">
+        <Terminal className="h-3.5 w-3.5 text-blue-400" />
+        <span className="text-xs font-medium text-blue-400">Live Output</span>
+        <span className="text-[10px] text-muted-foreground ml-auto">{lines.length} lines</span>
+      </div>
+      <div className="max-h-64 overflow-y-auto p-3 font-mono text-xs leading-relaxed text-green-300/80">
+        {lines.map((line, i) => (
+          <div key={i} className={line.includes("ERROR") || line.includes("FAIL") ? "text-red-400" : line.includes("WARN") ? "text-amber-400" : ""}>
+            {line}
+          </div>
+        ))}
+        <div ref={bottomRef} />
+      </div>
+    </div>
+  );
+}
+
 export default function PipelineRunsPage() {
   const [runs, setRuns] = useState<PipelineRun[]>([]);
   const [loading, setLoading] = useState(true);
@@ -68,6 +96,9 @@ export default function PipelineRunsPage() {
   const [triggering, setTriggering] = useState(false);
   const [expandedRun, setExpandedRun] = useState<number | null>(null);
   const [lastTriggered, setLastTriggered] = useState<{ run_id: number; phase: string } | null>(null);
+
+  // Real-time pipeline status via WebSocket
+  const pipeline = usePipelineStatus();
 
   const fetchRuns = useCallback(async () => {
     setLoading(true);
@@ -81,15 +112,20 @@ export default function PipelineRunsPage() {
     }
   }, []);
 
+  // Initial REST load
   useEffect(() => { fetchRuns(); }, [fetchRuns]);
 
-  // Auto-refresh when a run is active
+  // Merge WebSocket data into runs when available
   useEffect(() => {
-    const hasActive = runs.some(r => r.status === "running" || r.status === "pending");
-    if (!hasActive) return;
-    const interval = setInterval(fetchRuns, 5000);
-    return () => clearInterval(interval);
-  }, [runs, fetchRuns]);
+    if (pipeline.recentRuns.length > 0) {
+      setRuns(prev => {
+        const wsIds = new Set(pipeline.recentRuns.map(r => r.id));
+        // Replace matching runs with fresher WS data, keep older REST-loaded ones
+        const older = prev.filter(r => !wsIds.has(r.id));
+        return [...pipeline.recentRuns, ...older].sort((a, b) => b.id - a.id);
+      });
+    }
+  }, [pipeline.recentRuns]);
 
   const handleTrigger = async () => {
     setTriggering(true);
@@ -97,6 +133,7 @@ export default function PipelineRunsPage() {
       const result = await triggerPipelineRun({ trigger_type: "manual", dry_run: dryRun });
       setLastTriggered({ run_id: result.run_id, phase: result.phase });
       setTriggerOpen(false);
+      // REST fetch to get full history; WS will keep it updated from here
       fetchRuns();
     } catch (e) {
       console.error("Failed to trigger run:", e);
@@ -105,7 +142,7 @@ export default function PipelineRunsPage() {
     }
   };
 
-  const activeRun = runs.find(r => r.status === "running");
+  const activeRun = pipeline.activeRun || runs.find(r => r.status === "running");
   const completedCount = runs.filter(r => r.status === "completed").length;
   const failedCount = runs.filter(r => r.status === "failed").length;
 
@@ -117,7 +154,11 @@ export default function PipelineRunsPage() {
           <h1 className="text-2xl font-bold tracking-tight">Pipeline Runs</h1>
           <p className="text-sm text-muted-foreground mt-1">Trigger, monitor, and review pipeline execution history</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] border ${pipeline.connected ? "text-emerald-400 border-emerald-400/30 bg-emerald-400/5" : "text-muted-foreground border-border"}`}>
+            {pipeline.connected ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
+            {pipeline.connected ? "Live" : "Offline"}
+          </span>
           <Button variant="outline" size="sm" onClick={fetchRuns} disabled={loading}>
             <RefreshCw className={`h-4 w-4 mr-1.5 ${loading ? "animate-spin" : ""}`} />Refresh
           </Button>
@@ -180,6 +221,9 @@ export default function PipelineRunsPage() {
           <p className="text-xs text-muted-foreground mt-1">Failed</p>
         </div>
       </div>
+
+      {/* Live Output Console (visible when a run is active) */}
+      {pipeline.isRunning && <LiveOutputConsole lines={pipeline.liveOutput} />}
 
       {/* Last triggered banner */}
       {lastTriggered && (
