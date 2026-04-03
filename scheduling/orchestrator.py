@@ -163,60 +163,69 @@ async def run_orchestrator(
     if check_kill_switch():
         return summary
 
-    # 4. Phantom persona engagement on MainUser's recent posts
+    # 4. Phantom persona engagement on MainUser's recent posts (skip browser in dry-run)
     if engine.phantom_engagement and summary["posts"] > 0:
-        try:
-            phantom_actions = await _run_phantom_engagement(
-                sheets_client, rate_limits, headless, dry_run
-            )
-            summary["phantom_actions"] = phantom_actions
-        except LinkedInChallengeDetected as e:
-            logger.error("Challenge on phantom persona: %s", e)
-            sheets_client.log("CHALLENGE_DETECTED", status="BLOCKED", error=str(e))
+        if dry_run:
+            logger.info("[DRY RUN] Skipping phantom engagement (requires browser)")
+        else:
+            try:
+                phantom_actions = await _run_phantom_engagement(
+                    sheets_client, rate_limits, headless, dry_run
+                )
+                summary["phantom_actions"] = phantom_actions
+            except LinkedInChallengeDetected as e:
+                logger.error("Challenge on phantom persona: %s", e)
+                sheets_client.log("CHALLENGE_DETECTED", status="BLOCKED", error=str(e))
 
     if check_kill_switch():
         return summary
 
-    # 5. MainUser commenting on targets
+    # 5. MainUser commenting on targets (skip browser in dry-run)
     if engine.commenting:
-        max_comments = rate_limits.get("main_comments_per_day", 10)
-        try:
-            results = await run_commenter(
-                sheets_client=sheets_client,
-                persona_name="MainUser",
-                max_comments=max_comments,
-                headless=headless,
-                dry_run=dry_run,
-            )
-            summary["comments"] = len(results)
-        except LinkedInChallengeDetected as e:
-            logger.error("Challenge during commenting: %s", e)
-            activate_kill_switch(f"LinkedIn challenge: {e}")
-            summary["errors"].append(f"Challenge: {e}")
-            return summary
-        except Exception as e:
-            logger.error("Commenter failed: %s", e)
-            summary["errors"].append(f"Commenter: {e}")
+        if dry_run:
+            logger.info("[DRY RUN] Skipping commenter (requires browser)")
+        else:
+            max_comments = rate_limits.get("main_comments_per_day", 10)
+            try:
+                results = await run_commenter(
+                    sheets_client=sheets_client,
+                    persona_name="MainUser",
+                    max_comments=max_comments,
+                    headless=headless,
+                    dry_run=dry_run,
+                )
+                summary["comments"] = len(results)
+            except LinkedInChallengeDetected as e:
+                logger.error("Challenge during commenting: %s", e)
+                activate_kill_switch(f"LinkedIn challenge: {e}")
+                summary["errors"].append(f"Challenge: {e}")
+                return summary
+            except Exception as e:
+                logger.error("Commenter failed: %s", e)
+                summary["errors"].append(f"Commenter: {e}")
 
     if check_kill_switch():
         return summary
 
-    # 6. Check replies on MainUser's posts
+    # 6. Check replies on MainUser's posts (skip browser in dry-run)
     if engine.replying:
-        try:
-            results = await run_replier(
-                sheets_client=sheets_client,
-                headless=headless,
-                dry_run=dry_run,
-            )
-            summary["replies"] = len(results)
-        except LinkedInChallengeDetected as e:
-            logger.error("Challenge during replying: %s", e)
-            activate_kill_switch(f"LinkedIn challenge: {e}")
-            summary["errors"].append(f"Challenge: {e}")
-        except Exception as e:
-            logger.error("Replier failed: %s", e)
-            summary["errors"].append(f"Replier: {e}")
+        if dry_run:
+            logger.info("[DRY RUN] Skipping replier (requires browser)")
+        else:
+            try:
+                results = await run_replier(
+                    sheets_client=sheets_client,
+                    headless=headless,
+                    dry_run=dry_run,
+                )
+                summary["replies"] = len(results)
+            except LinkedInChallengeDetected as e:
+                logger.error("Challenge during replying: %s", e)
+                activate_kill_switch(f"LinkedIn challenge: {e}")
+                summary["errors"].append(f"Challenge: {e}")
+            except Exception as e:
+                logger.error("Replier failed: %s", e)
+                summary["errors"].append(f"Replier: {e}")
 
     # 7. Update last run time
     try:
