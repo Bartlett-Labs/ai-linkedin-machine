@@ -1,11 +1,15 @@
 """Shared dependencies for the API layer."""
 
+import hmac
 import json
+import logging
 import os
 from functools import lru_cache
 from typing import Annotated, Union
 
 from fastapi import Depends, Header, HTTPException, status
+
+logger = logging.getLogger(__name__)
 
 API_KEY = os.getenv("DASHBOARD_API_KEY", "")
 
@@ -40,7 +44,8 @@ def verify_api_key(x_api_key: Annotated[str, Header()] = "") -> str:
     """
     if not API_KEY:
         return "dev"
-    if x_api_key != API_KEY:
+    if not hmac.compare_digest(x_api_key, API_KEY):
+        logger.warning("Auth failure: invalid API key attempt")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid API key",

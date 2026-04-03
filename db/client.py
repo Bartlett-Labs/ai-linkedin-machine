@@ -1005,3 +1005,107 @@ class DatabaseClient:
                 return False
             session.delete(row)
             return True
+
+    # ------------------------------------------------------------------
+    # Webhook events (LinkedIn social action notifications)
+    # ------------------------------------------------------------------
+
+    def create_webhook_event(self, event_data: dict) -> int:
+        """Insert a webhook event. Returns the new ID."""
+        with sync_session() as session:
+            row = m.WebhookEvent(
+                event_type=event_data.get("event_type", "ORGANIZATION_SOCIAL_ACTION_NOTIFICATIONS"),
+                action=event_data.get("action", ""),
+                notification_id=event_data["notification_id"],
+                organization_urn=event_data.get("organization_urn", ""),
+                source_post_urn=event_data.get("source_post_urn"),
+                generated_activity_urn=event_data.get("generated_activity_urn", ""),
+                actor_urn=event_data.get("actor_urn"),
+                comment_text=event_data.get("comment_text"),
+                raw_payload=event_data.get("raw_payload"),
+                processed=event_data.get("processed", False),
+                queue_item_id=event_data.get("queue_item_id"),
+            )
+            session.add(row)
+            session.flush()
+            return row.id
+
+    def get_webhook_event_by_notification_id(self, notification_id: int) -> Optional[dict]:
+        """Look up a webhook event by LinkedIn notification_id (for deduplication)."""
+        with sync_session() as session:
+            stmt = select(m.WebhookEvent).where(
+                m.WebhookEvent.notification_id == notification_id
+            )
+            row = session.execute(stmt).scalar_one_or_none()
+            if row is None:
+                return None
+            return {
+                "id": row.id,
+                "received_at": row.received_at.isoformat() if row.received_at else None,
+                "event_type": row.event_type,
+                "action": row.action,
+                "notification_id": row.notification_id,
+                "organization_urn": row.organization_urn,
+                "source_post_urn": row.source_post_urn,
+                "generated_activity_urn": row.generated_activity_urn,
+                "actor_urn": row.actor_urn,
+                "comment_text": row.comment_text,
+                "processed": row.processed,
+                "queue_item_id": row.queue_item_id,
+            }
+
+    def get_webhook_events(
+        self,
+        limit: int = 50,
+        offset: int = 0,
+        action_filter: str = "",
+        processed: Optional[bool] = None,
+    ) -> tuple[list[dict], int]:
+        """List webhook events with filtering. Returns (events, total_count)."""
+        with sync_session() as session:
+            stmt = select(m.WebhookEvent)
+            count_stmt = select(func.count(m.WebhookEvent.id))
+
+            if action_filter:
+                stmt = stmt.where(m.WebhookEvent.action == action_filter)
+                count_stmt = count_stmt.where(m.WebhookEvent.action == action_filter)
+            if processed is not None:
+                stmt = stmt.where(m.WebhookEvent.processed == processed)
+                count_stmt = count_stmt.where(m.WebhookEvent.processed == processed)
+
+            total = session.execute(count_stmt).scalar_one()
+
+            stmt = (
+                stmt
+                .order_by(m.WebhookEvent.received_at.desc())
+                .offset(offset)
+                .limit(limit)
+            )
+            rows = session.execute(stmt).scalars().all()
+
+            events = [
+                {
+                    "id": row.id,
+                    "received_at": row.received_at.isoformat() if row.received_at else None,
+                    "event_type": row.event_type,
+                    "action": row.action,
+                    "notification_id": row.notification_id,
+                    "organization_urn": row.organization_urn,
+                    "source_post_urn": row.source_post_urn,
+                    "generated_activity_urn": row.generated_activity_urn,
+                    "actor_urn": row.actor_urn,
+                    "comment_text": row.comment_text,
+                    "processed": row.processed,
+                    "queue_item_id": row.queue_item_id,
+                }
+                for row in rows
+            ]
+            return events, total
+
+    def update_webhook_event_queue_link(self, event_id: int, queue_item_id: int) -> None:
+        """Link a webhook event to its auto-created queue item."""
+        with sync_session() as session:
+            row = session.get(m.WebhookEvent, event_id)
+            if row:
+                row.queue_item_id = queue_item_id
+                row.processed = True

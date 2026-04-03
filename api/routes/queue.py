@@ -5,31 +5,41 @@ Provides endpoints for viewing, approving, rejecting, and editing
 outbound queue items from the dashboard.
 """
 
-from fastapi import APIRouter
-from pydantic import BaseModel
-from typing import Optional
+import logging
+from typing import Literal, Optional
+
+from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel, Field
 
 from api.deps import DataClientDep, AuthDep
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/queue", tags=["queue"])
+
+ValidStatus = Literal["READY", "IN_PROGRESS", "DONE", "FAILED", "SKIPPED"]
+ValidPersona = Literal[
+    "MainUser", "Marcus Chen", "Dr. Priya Nair",
+    "Jake Morrison", "Rebecca Torres", "Alex Kim", "David Okafor",
+]
+ValidActionType = Literal["post", "comment", "reply", "repost"]
 
 
 class QueueUpdateRequest(BaseModel):
-    status: Optional[str] = None
-    draft_text: Optional[str] = None
-    notes: Optional[str] = None
-    persona: Optional[str] = None
-    target_url: Optional[str] = None
-    action_type: Optional[str] = None
+    status: Optional[ValidStatus] = None
+    draft_text: Optional[str] = Field(None, max_length=10000)
+    notes: Optional[str] = Field(None, max_length=2000)
+    persona: Optional[ValidPersona] = None
+    target_url: Optional[str] = Field(None, max_length=2000)
+    action_type: Optional[ValidActionType] = None
 
 
 class QueueCreateRequest(BaseModel):
     post_id: str = ""
-    persona: str = "MainUser"
-    draft_text: str
-    action_type: str = "post"
-    target_url: str = ""
-    notes: str = ""
+    persona: ValidPersona = "MainUser"
+    draft_text: str = Field(..., min_length=1, max_length=10000)
+    action_type: ValidActionType = "post"
+    target_url: str = Field("", max_length=2000)
+    notes: str = Field("", max_length=2000)
 
 
 @router.get("")
@@ -37,8 +47,8 @@ async def get_queue(
     client: DataClientDep,
     _auth: AuthDep,
     status: str = "",
-    limit: int = 100,
-    offset: int = 0,
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
 ):
     """List queue items with optional status filter and pagination."""
     items, total = client.get_queue_items(
@@ -77,7 +87,8 @@ async def update_queue_item(
 
     result = client.update_queue_item(item_id, updates)
     if result is None:
-        return {"status": "not_found"}
+        raise HTTPException(status_code=404, detail=f"Queue item {item_id} not found")
+    logger.info("Queue item #%d updated: %s", item_id, list(updates.keys()))
     return {"status": "updated", **result}
 
 
@@ -96,4 +107,5 @@ async def create_queue_item(
         target_url=body.target_url,
         notes=body.notes,
     )
+    logger.info("Queue item #%d created (type=%s, persona=%s)", new_id, body.action_type, body.persona)
     return {"status": "created", "id": new_id}

@@ -316,3 +316,29 @@ class PipelineRun(Base):
     phantom_actions: Mapped[int] = mapped_column(Integer, default=0)
     errors: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     summary: Mapped[str] = mapped_column(Text, default="")
+
+
+# ---------------------------------------------------------------------------
+# 14. WebhookEvents — LinkedIn webhook notification log
+# ---------------------------------------------------------------------------
+
+class WebhookEvent(Base):
+    __tablename__ = "webhook_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    received_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+    event_type: Mapped[str] = mapped_column(
+        String(100), default="ORGANIZATION_SOCIAL_ACTION_NOTIFICATIONS"
+    )
+    action: Mapped[str] = mapped_column(String(50), default="", index=True)
+    notification_id: Mapped[int] = mapped_column(Integer, unique=True, index=True)
+    organization_urn: Mapped[str] = mapped_column(String(200), default="")
+    source_post_urn: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    generated_activity_urn: Mapped[str] = mapped_column(String(200), default="")
+    actor_urn: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    comment_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    raw_payload: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    processed: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    queue_item_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)

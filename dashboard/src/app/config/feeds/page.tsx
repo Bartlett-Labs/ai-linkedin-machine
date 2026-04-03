@@ -11,6 +11,11 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   Rss, Plus, RefreshCw, ExternalLink, Trash2,
   Edit3, Globe, Clock, CheckCircle2, XCircle,
 } from "lucide-react";
@@ -245,10 +250,30 @@ export default function FeedsPage() {
                     <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setEditFeed(feed)}>
                       <Edit3 className="h-3 w-3 mr-1" />Edit
                     </Button>
-                    <Button variant="ghost" size="sm" className="h-7 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10"
-                      onClick={() => handleDelete(feed.id)}>
-                      <Trash2 className="h-3 w-3 mr-1" />Remove
-                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-7 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10">
+                          <Trash2 className="h-3 w-3 mr-1" />Remove
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Remove Feed Source</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will permanently delete &ldquo;{feed.name}&rdquo;. This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            className="bg-red-600 hover:bg-red-700 text-white"
+                            onClick={() => handleDelete(feed.id)}
+                          >
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 </CardContent>
               </Card>

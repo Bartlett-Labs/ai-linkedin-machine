@@ -1,12 +1,84 @@
 # ENGRAM — AI LinkedIn Machine
 
-> Last updated: 2026-04-02T16:30 CST
+> Last updated: 2026-04-02T20:15 CST
 
-## Current State: Phase 2 COMPLETE — Dashboard Enhancements Done
+## Current State: Phase 2 COMPLETE + Webhook VALIDATED BY LINKEDIN + API Keys APPROVED
 
-All 4 new dashboard pages built, 3 new API route files created, DatabaseClient extended with 8 new methods, navigation updated with "Operations" section. Build compiles clean (18 routes).
+All Phase 2 work complete. LinkedIn webhook microservice built, deployed, and **validated by LinkedIn** — challenge-response confirmed live via `webhooks.bartlettlabs.io`. LinkedIn API keys also approved (2026-04-02). 14 tables in Postgres, 18 dashboard routes.
+
+### Session 7 (2026-04-02): Webhook Go-Live
+- Stopped PM2-managed `bartlett-webhooks` Node.js service that was occupying port 3847 (`pm2 stop bartlett-webhooks`)
+- Started LinkedIn webhook FastAPI service on port 3847 (PID-based, not PM2)
+- Verified cloudflared tunnel running (PID 2077) — `webhooks.bartlettlabs.io → localhost:3847`
+- Health check confirmed: `{"status":"ok","service":"linkedin-webhook"}`
+- **LinkedIn validated the webhook** — challenge-response passed, endpoint registered in Developer Portal
+- **LinkedIn API keys approved** — full programmatic access granted
+
+### Pending
+- Update `LINKEDIN_ACCESS_TOKEN` in `.env` (currently placeholder)
+- Update `LINKEDIN_ORG_URN` in `.env` (currently `REPLACE_WITH_ORG_ID`)
+- Consider replacing PM2 `bartlett-webhooks` with LinkedIn webhook service permanently (`pm2 delete bartlett-webhooks`)
 
 ## Completed Work
+
+### Session 6 (2026-04-02): LinkedIn Webhook Service
+
+**Architecture**: Separate FastAPI microservice on port 3847, behind Cloudflare tunnel (`webhooks.bartlettlabs.io → localhost:3847`). Shares `db/` module with main API.
+
+**New DB model — `WebhookEvent` (table 14, `db/models.py`):**
+- Fields: id, received_at, event_type, action, notification_id (unique), organization_urn, source_post_urn, generated_activity_urn, actor_urn, comment_text, raw_payload (JSONB), processed, queue_item_id
+- Indexes on: received_at, action, notification_id, processed
+
+**Alembic migration**: `a7b2c9d3e4f1_add_webhook_events_table.py` — ran successfully against local Postgres.
+
+**DatabaseClient extensions (`db/client.py`) — 4 new methods:**
+- `create_webhook_event(event_data)` — insert event, return ID
+- `get_webhook_event_by_notification_id(notification_id)` — dedup lookup
+- `get_webhook_events(limit, offset, action_filter, processed)` — list with filtering, returns (events, total)
+- `update_webhook_event_queue_link(event_id, queue_item_id)` — link event to auto-queued reply
+
+**Webhook service (`webhook/server.py`):**
+- `GET /` — LinkedIn challenge-response validation (HMAC-SHA256 of challengeCode with client secret)
+- `POST /` — Receive batched social action notifications. Deduplicates by notification_id. Stores all events. Auto-queues reply drafts for COMMENT actions. Logs to system_logs audit trail.
+- `GET /health` — service health check
+- Returns 200 within 3 seconds (LinkedIn requirement)
+
+**Environment & infrastructure:**
+- `.env` — added `LINKEDIN_ORG_URN`, `WEBHOOK_PORT=3847` (client secret already existed)
+- `start.sh` — process manager script: `./start.sh` (both), `./start.sh api`, `./start.sh webhook`, `./start.sh stop`
+
+**E2E test results (all 5 passed):**
+1. Health check — `{"status":"ok","service":"linkedin-webhook"}`
+2. Challenge validation — HMAC-SHA256 response generated correctly
+3. COMMENT ingestion — event stored, reply auto-queued to outbound_queue (status=READY)
+4. Deduplication — same notificationId rejected (duplicates=1, created=0)
+5. LIKE action — event stored, no auto-queue (queued=0)
+
+**DB verification:** webhook_events populated, outbound_queue has auto-queued reply with notes linking to webhook event, system_logs has audit entries with module=webhook.
+
+### Session 5 (2026-04-02): Fullstack Guardian Security Audit
+
+**Audit scope**: All Phase 2 code — 3 API route files, 4 frontend pages, deps layer, server config.
+
+**CRITICAL fixes:**
+- `deps.py` — Replaced timing-unsafe `!=` with `hmac.compare_digest()` for API key comparison. Added security logging for auth failures.
+- `pipeline.py` — Added active run concurrency guard on `POST /api/pipeline/run` — rejects with 409 if a run is already running/pending. Prevents DoS via unlimited pipeline triggers.
+- `feeds.py` — Added SSRF protection: `_validate_feed_url()` rejects URLs pointing to localhost, private IPs (127.x, 10.x, 172.16-31.x, 192.168.x, 169.254.x), and non-HTTP schemes.
+
+**HIGH fixes:**
+- `queue.py` — Added `Literal` type validation for status (5 valid values), persona (7 valid values), and action_type (4 valid values). Invalid enum values now rejected with 422.
+- `queue.py`, `pipeline.py` — Bounded `limit` (1-500) and `offset` (>=0) with `Query(ge=, le=)` on all paginated GET endpoints.
+- `queue.py`, `pipeline.py`, `feeds.py` — Replaced `{"status": "not_found"}` with 200 → proper `HTTPException(404)` for not-found responses.
+
+**MEDIUM fixes:**
+- `server.py` — Tightened CORS from `allow_methods=["*"], allow_headers=["*"]` → explicit whitelist `["GET","POST","PUT","DELETE","OPTIONS"]` and `["Content-Type","X-Api-Key","Authorization"]`.
+- `feeds.py` — Added `Field(min_length=1, max_length=200)` on name, `Field(max_length=2000)` on URL. Added `Literal` types for feed type (rss/atom/json/scraper) and category (6 valid values + empty).
+- `queue.py` — Added `Field(max_length=10000)` on draft_text, `Field(max_length=2000)` on notes/target_url.
+- `feeds/page.tsx` — Added `AlertDialog` delete confirmation before removing feed sources. Installed `shadcn alert-dialog` component.
+
+**Security logging added** to all mutation endpoints (create/update/delete) across queue.py, pipeline.py, feeds.py.
+
+**Build verified:** `next build` compiles clean — 18 routes, 0 errors.
 
 ### Session 4 (2026-04-02): Phase 2 — Dashboard Enhancements
 
@@ -66,6 +138,17 @@ All 4 new dashboard pages built, 3 new API route files created, DatabaseClient e
 
 ## Key Files Created/Modified
 
+### New Files (Webhook Service):
+- `webhook/__init__.py` — module init
+- `webhook/server.py` — FastAPI webhook service (GET challenge-response, POST notification ingestion, health check)
+- `db/alembic/versions/a7b2c9d3e4f1_add_webhook_events_table.py` — migration for table 14
+- `start.sh` — process manager script (api/webhook/stop/all)
+
+### Modified Files (Webhook Service):
+- `db/models.py` — Added `WebhookEvent` model (table 14) with notification_id unique constraint
+- `db/client.py` — Added 4 webhook methods (create_webhook_event, get_webhook_event_by_notification_id, get_webhook_events, update_webhook_event_queue_link)
+- `.env` — Added `LINKEDIN_ORG_URN`, `WEBHOOK_PORT=3847`
+
 ### New Files (Phase 2):
 - `api/routes/queue.py` — Queue CRUD API (GET/POST/PUT with status filtering)
 - `api/routes/pipeline.py` — Pipeline trigger + run history + error aggregation API
@@ -100,12 +183,27 @@ All 4 new dashboard pages built, 3 new API route files created, DatabaseClient e
 
 ## Database State
 - **Local Postgres**: `postgresql://kylebartlett@localhost:5432/linkedin_machine`
-- **13 tables**, all populated via seed script
+- **14 tables** (13 original + webhook_events), all populated via seed script
 - **EngineControl**: mode=Live, phase=stealth
-- **662 rows** total across all tables
+- **662 rows** total across original tables
 
-## Next Steps (Phase 3: Pipeline Execution Wiring)
+## Webhook Service
+- **Endpoint**: `webhooks.bartlettlabs.io` → Cloudflare tunnel → `localhost:3847`
+- **LinkedIn Client ID**: `863cehzc8gq3eb` (Bartlett Labs)
+- **Challenge validation**: HMAC-SHA256 of challengeCode with LINKEDIN_CLIENT_SECRET
+- **Auto-queue**: COMMENT actions create outbound_queue entries (status=READY, type=reply)
+- **Deduplication**: notification_id unique constraint prevents duplicate processing
+- **Note**: Port 3847 currently occupied by existing Node.js service — stop that before starting webhook service, or update Cloudflare tunnel to point to webhook service
 
+## Next Steps
+
+### Immediate: LinkedIn Webhook Registration
+1. **Find Bartlett Labs org ID** — needed for `LINKEDIN_ORG_URN` in `.env` (currently placeholder)
+2. **Stop existing service on :3847** — `kill $(lsof -ti:3847)` then start webhook: `./start.sh webhook`
+3. **Register webhook URL** in LinkedIn Developer Portal — enter `https://webhooks.bartlettlabs.io` with cloudflared tunnel running
+4. **Verify validation passes** — LinkedIn will GET the URL with a challengeCode
+
+### Phase 3: Pipeline Execution Wiring
 1. **Wire "Run Now" to actual pipeline** — Connect POST `/api/pipeline/run` to actually invoke `main.py` as a subprocess (currently just creates a DB record). Use `asyncio.create_subprocess_exec` in pipeline.py route. File: `api/routes/pipeline.py`
 2. **Pipeline status WebSocket** — Add `/api/pipeline/ws` WebSocket endpoint for real-time run status updates (similar to alerts WS). Push status changes as pipeline progresses.
 3. **History page fix** — `api/routes/history.py` still calls `sheets.get_system_log()` which doesn't exist on DatabaseClient. Replace with `client.get_system_log()` (now available). Same for analytics_service.py.

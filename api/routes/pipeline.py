@@ -4,11 +4,11 @@ Pipeline management API routes.
 Provides endpoints for triggering pipeline runs and viewing run history.
 """
 
-import asyncio
 import logging
-from fastapi import APIRouter
+from typing import Literal
+
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
-from typing import Optional
 
 from api.deps import DataClientDep, AuthDep
 
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class RunTriggerRequest(BaseModel):
-    trigger_type: str = "manual"
+    trigger_type: Literal["manual", "scheduled", "api"] = "manual"
     dry_run: bool = False
 
 
@@ -25,8 +25,8 @@ class RunTriggerRequest(BaseModel):
 async def get_pipeline_runs(
     client: DataClientDep,
     _auth: AuthDep,
-    limit: int = 50,
-    offset: int = 0,
+    limit: int = Query(default=50, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
 ):
     """Get pipeline run history."""
     runs = client.get_pipeline_runs(limit=limit)
@@ -51,7 +51,7 @@ async def get_pipeline_run(
     for run in runs:
         if run["id"] == run_id:
             return run
-    return {"status": "not_found"}
+    raise HTTPException(status_code=404, detail=f"Pipeline run {run_id} not found")
 
 
 @router.post("/run")
@@ -65,6 +65,15 @@ async def trigger_pipeline_run(
     Creates the run record immediately and returns the ID.
     The actual pipeline execution happens asynchronously.
     """
+    # Concurrency guard — prevent duplicate runs
+    existing = client.get_pipeline_runs(limit=10)
+    active = [r for r in existing if r["status"] in ("running", "pending")]
+    if active:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Pipeline run #{active[0]['id']} is already {active[0]['status']}",
+        )
+
     engine = client.get_engine_control()
     run_id = client.create_pipeline_run(
         trigger_type=body.trigger_type,
@@ -92,8 +101,8 @@ async def trigger_pipeline_run(
 async def get_pipeline_errors(
     client: DataClientDep,
     _auth: AuthDep,
-    limit: int = 100,
-    offset: int = 0,
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
 ):
     """Get aggregated errors from pipeline runs and system logs."""
     # Errors from pipeline runs
