@@ -282,7 +282,7 @@ def _pick_posting_window(
         day_name = day.strftime("%A").lower()
         available = [
             w for w in schedule_windows
-            if w.day_of_week.lower() == day_name and w.enabled
+            if _is_day_match(w.days_of_week, day) and w.enabled
         ]
         if available:
             return random.choice(available).window_name

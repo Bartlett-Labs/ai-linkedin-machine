@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 # Track running pipeline tasks to prevent GC and enable status checks
 _running_tasks: dict[int, asyncio.Task] = {}
 
-_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 class RunTriggerRequest(BaseModel):

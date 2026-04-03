@@ -394,18 +394,32 @@ class DatabaseClient:
     def log(
         self,
         action: str,
+        persona: str = "",
         target: str = "",
+        status: str = "OK",
+        details: str = "",
+        error: str = "",
         *,
         module: str = "",
-        status: str = "OK",
         safety: str = "Safe",
         notes: str = "",
-        error: str = "",
     ) -> None:
         """Append an entry to the system log.
 
-        Mirrors SheetsClient.log() signature.
+        Accepts both SheetsClient.log() and DatabaseClient-native signatures:
+          SheetsClient: log(action, persona, target, status, details, error)
+          Native:       log(action, target=, module=, status=, notes=, error=)
+
+        ``details`` is mapped to ``notes`` when ``notes`` is empty.
+        ``persona`` is prepended to ``notes`` as ``[persona]`` when provided.
         """
+        # Merge details → notes
+        effective_notes = notes or details
+        if persona and effective_notes:
+            effective_notes = f"[{persona}] {effective_notes}"
+        elif persona:
+            effective_notes = f"[{persona}]"
+
         with sync_session() as session:
             entry = m.SystemLog(
                 module=module,
@@ -413,7 +427,7 @@ class DatabaseClient:
                 target=target,
                 result=status if not error else f"FAILED: {error}",
                 safety=safety,
-                notes=notes,
+                notes=effective_notes,
             )
             session.add(entry)
         logger.debug("Logged: %s %s → %s", action, target, status)

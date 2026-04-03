@@ -2,9 +2,16 @@
 
 > Last updated: 2026-04-02T20:15 CST
 
-## Current State: Phase 2 COMPLETE + Webhook VALIDATED BY LINKEDIN + API Keys APPROVED
+## Current State: Phase 3 COMPLETE — Pipeline Execution Wiring + Data Layer Consistency
 
-All Phase 2 work complete. LinkedIn webhook microservice built, deployed, and **validated by LinkedIn** — challenge-response confirmed live via `webhooks.bartlettlabs.io`. LinkedIn API keys also approved (2026-04-02). 14 tables in Postgres, 18 dashboard routes.
+Phase 3 complete. Pipeline "Run Now" wired to subprocess execution, WebSocket added for real-time status, all route files migrated from SheetsClientDep → DataClientDep. Commit `902fbe6`.
+
+### Session 8 (2026-04-02): Phase 3 — Pipeline Execution + Data Layer
+- **Pipeline execution wired** — `POST /api/pipeline/run` now invokes `main.py` as async subprocess via `asyncio.create_subprocess_exec`. Full CLI flag passthrough (dry-run, skip-ingest, skip-generate, comments-only, replies-only). Stdout parsed for action counts. Concurrency guard prevents duplicate runs.
+- **Pipeline WebSocket** — `/api/pipeline/ws` endpoint polls every 5s when active, 30s idle. Sends active run status + recent runs to connected clients.
+- **Data layer consistency** — All 10 route files migrated: `SheetsClientDep` → `DataClientDep`, `sheets` param → `client`, `sheets.client` imports → `db.client` imports. analytics_service.py updated.
+- **History page fixed** — `history.py` now uses `client.get_system_log()` instead of broken `sheets.get_system_log()`
+- **Schedule config fixed** — `schedule.py` imports from `db.client` instead of `sheets.client`
 
 ### Session 7 (2026-04-02): Webhook Go-Live
 - Stopped PM2-managed `bartlett-webhooks` Node.js service that was occupying port 3847 (`pm2 stop bartlett-webhooks`)
@@ -15,9 +22,11 @@ All Phase 2 work complete. LinkedIn webhook microservice built, deployed, and **
 - **LinkedIn API keys approved** — full programmatic access granted
 
 ### Pending
+- End-to-end verification (start API + dashboard, verify all 18 pages, CRUD ops)
+- Pipeline dry run (full flow: ingest → summarize → generate → verify logs)
 - Update `LINKEDIN_ACCESS_TOKEN` in `.env` (currently placeholder)
 - Update `LINKEDIN_ORG_URN` in `.env` (currently `REPLACE_WITH_ORG_ID`)
-- Consider replacing PM2 `bartlett-webhooks` with LinkedIn webhook service permanently (`pm2 delete bartlett-webhooks`)
+- Deploy to Coolify (production deployment behind reverse proxy)
 
 ## Completed Work
 
@@ -197,19 +206,16 @@ All Phase 2 work complete. LinkedIn webhook microservice built, deployed, and **
 
 ## Next Steps
 
-### Immediate: LinkedIn Webhook Registration
-1. **Find Bartlett Labs org ID** — needed for `LINKEDIN_ORG_URN` in `.env` (currently placeholder)
-2. **Stop existing service on :3847** — `kill $(lsof -ti:3847)` then start webhook: `./start.sh webhook`
-3. **Register webhook URL** in LinkedIn Developer Portal — enter `https://webhooks.bartlettlabs.io` with cloudflared tunnel running
-4. **Verify validation passes** — LinkedIn will GET the URL with a challengeCode
+### Immediate: End-to-End Verification
+1. **Start FastAPI server** — Verify all route modules load, no import errors
+2. **Start Next.js dashboard** — Verify all 18 pages compile and load
+3. **Test CRUD operations** — Queue, feeds, pipeline runs, engine control
+4. **Pipeline dry run** — Full flow: ingest → summarize → generate → verify logs in system_logs table
 
-### Phase 3: Pipeline Execution Wiring
-1. **Wire "Run Now" to actual pipeline** — Connect POST `/api/pipeline/run` to actually invoke `main.py` as a subprocess (currently just creates a DB record). Use `asyncio.create_subprocess_exec` in pipeline.py route. File: `api/routes/pipeline.py`
-2. **Pipeline status WebSocket** — Add `/api/pipeline/ws` WebSocket endpoint for real-time run status updates (similar to alerts WS). Push status changes as pipeline progresses.
-3. **History page fix** — `api/routes/history.py` still calls `sheets.get_system_log()` which doesn't exist on DatabaseClient. Replace with `client.get_system_log()` (now available). Same for analytics_service.py.
-4. **Schedule config update fix** — `api/routes/schedule.py` calls `sheets.update_schedule_config()` which didn't exist on DatabaseClient. Now fixed with `client.update_schedule_config()` but route still uses old import pattern.
-5. **End-to-end test** — Start FastAPI server + Next.js dashboard, verify all 18 pages load, test CRUD operations on queue/feeds/pipeline.
-6. **Pipeline actual execution** — Full dry run: ingest → summarize → generate → (skip LinkedIn posting) → verify logs in system_logs table.
+### After E2E:
+1. **Update LinkedIn credentials** — `LINKEDIN_ACCESS_TOKEN` and `LINKEDIN_ORG_URN` in `.env` (currently placeholders)
+2. **Deploy to Coolify** — Production deployment of dashboard + API behind reverse proxy
+3. **Wire dashboard WebSocket** — Connect runs page and home page to pipeline WebSocket for real-time updates
 
 ## Architecture Reference
 - **Data Layer**: `db/` module (Postgres via SQLAlchemy 2.0). Toggle: `DATA_BACKEND=postgres|sheets`

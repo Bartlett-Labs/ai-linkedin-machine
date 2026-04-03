@@ -64,15 +64,12 @@ def update_engine_control(
 ):
     """Update engine control settings."""
     updates = {}
-    for field_name, sheet_key in _FIELD_TO_SHEET_KEY.items():
+    for field_name in _FIELD_TO_SHEET_KEY:
         value = getattr(body, field_name)
         if value is not None:
-            if isinstance(value, bool):
-                updates[sheet_key] = "TRUE" if value else "FALSE"
-            else:
-                updates[sheet_key] = str(value)
+            updates[field_name] = value
 
     if updates:
         client.update_engine_control(updates)
 
-    return get_engine_control(sheets, _auth)
+    return get_engine_control(client, _auth)

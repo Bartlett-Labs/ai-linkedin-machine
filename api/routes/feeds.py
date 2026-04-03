@@ -18,7 +18,11 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/feeds", tags=["feeds"])
 
 ValidFeedType = Literal["rss", "atom", "json", "scraper"]
-ValidCategory = Literal["ai", "automation", "ops", "tech", "business", "career", ""]
+ValidCategory = Literal[
+    "ai", "ai_automation", "automation", "ops", "ops_efficiency",
+    "tech", "tech_news", "business", "career", "research",
+    "dev_tools", "personal_growth", "builder_stories", "",
+]
 
 _PRIVATE_IP_PATTERNS = [
     re.compile(r"^127\."),
