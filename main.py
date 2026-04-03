@@ -45,6 +45,7 @@ def _get_data_client():
 from engagement.commenter import run_commenter
 from engagement.replier import run_replier
 from ingestion.rss_ingest import ingest
+from ingestion.web_scraper import update_raw_files as enrich_articles
 from summarization.summarize import run_all as run_summarize
 from posting_generator.generate_post import run_all as generate_posts
 
@@ -125,6 +126,13 @@ async def main(
             ingest()
         except Exception as e:
             logger.error("RSS ingestion failed: %s", e)
+
+        # Step 1b: Enrich thin RSS summaries with full article text
+        logger.info("Step 1b: Enriching thin article summaries...")
+        try:
+            enrich_articles()
+        except Exception as e:
+            logger.error("Article enrichment failed: %s", e)
 
     # Step 2: Summarize articles (sync, API calls)
     if not skip_generate:

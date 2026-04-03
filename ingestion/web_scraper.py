@@ -22,9 +22,12 @@ _HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
         "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/124.0.0.0 Safari/537.36"
+        "Chrome/131.0.0.0 Safari/537.36"
     ),
 }
+
+# Articles with summaries shorter than this get enriched via scraping
+MIN_SUMMARY_LENGTH = 500
 
 
 def scrape_article(url: str) -> str:
@@ -42,30 +45,52 @@ def scrape_article(url: str) -> str:
         return ""
 
 
-def update_raw_files() -> None:
-    """Enrich raw articles that have empty summaries by scraping the source URL."""
+def update_raw_files() -> int:
+    """Enrich raw articles with thin summaries by scraping the source URL.
+
+    Scrapes articles where summary_raw is empty or shorter than
+    MIN_SUMMARY_LENGTH characters. Returns count of enriched articles.
+    """
     if not os.path.isdir(RAW_DIR):
         logger.warning("Raw directory does not exist: %s", RAW_DIR)
-        return
+        return 0
+
+    enriched = 0
+    skipped = 0
 
     for file in os.listdir(RAW_DIR):
-        if not file.endswith(".json"):
+        if not file.endswith(".json") or file.startswith("."):
             continue
 
         path = os.path.join(RAW_DIR, file)
         with open(path, "r") as f:
             data = json.load(f)
 
-        if not data.get("summary_raw"):
-            url = data.get("url")
-            if url:
-                logger.info("Scraping: %s", url)
-                content = scrape_article(url)
-                data["summary_raw"] = content[:5000]
+        current_summary = data.get("summary_raw", "")
+        if len(current_summary) >= MIN_SUMMARY_LENGTH:
+            skipped += 1
+            continue
 
-                with open(path, "w") as f:
-                    json.dump(data, f, indent=2)
-                logger.info("Updated: %s", path)
+        url = data.get("url")
+        if not url:
+            continue
+
+        logger.info("Scraping: %s (%d chars -> enriching)", url, len(current_summary))
+        content = scrape_article(url)
+
+        if content and len(content) > len(current_summary):
+            data["summary_raw"] = content[:5000]
+            data["enriched"] = True
+
+            with open(path, "w") as f:
+                json.dump(data, f, indent=2)
+            enriched += 1
+            logger.info("Enriched: %s (%d -> %d chars)", file, len(current_summary), len(content[:5000]))
+        else:
+            logger.warning("Scrape returned less content than RSS for %s", file)
+
+    logger.info("Enrichment complete: %d enriched, %d already sufficient", enriched, skipped)
+    return enriched
 
 
 if __name__ == "__main__":

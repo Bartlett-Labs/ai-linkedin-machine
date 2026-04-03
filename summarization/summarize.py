@@ -104,7 +104,7 @@ def run_all(max_age_days: int = 7):
     # Collect articles with their ingestion timestamps
     articles: list[tuple[str, datetime]] = []
     for file in os.listdir(RAW_DIR):
-        if not file.endswith(".json"):
+        if not file.endswith(".json") or file.startswith("."):
             continue
         # Skip if already summarized
         summary_name = file.replace(".json", ".md")
