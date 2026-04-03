@@ -1,10 +1,28 @@
 # ENGRAM — AI LinkedIn Machine
 
-> Last updated: 2026-04-02T20:15 CST
+> Last updated: 2026-04-03T11:00 CST
 
-## Current State: Phase 3 COMPLETE — Pipeline Execution Wiring + Data Layer Consistency
+## Current State: PIPELINE DRY RUN PASSING — ingestion + summarization freshness-first
 
-Phase 3 complete. Pipeline "Run Now" wired to subprocess execution, WebSocket added for real-time status, all route files migrated from SheetsClientDep → DataClientDep. Commit `902fbe6`.
+Pipeline completes in ~100s (was hours). RSS ingest uses hash manifest dedup + 7-day recency filter. Summarizer sorts newest-first, skips existing. Post generator skips existing. Commits: `91970c5` (freshness-first summarization), pending (RSS ingest fix).
+
+### Session 10 (2026-04-03): RSS Ingestion Fix + Pipeline Dry Run
+
+- **RSS ingest rewritten** — `ingestion/rss_ingest.py` now has: (1) persistent hash manifest at `.seen_hashes.json` (survives file archiving), (2) publication date recency filter via feedparser's `published_parsed`/`updated_parsed`, (3) per-feed logging of new/old/seen counts. No flat cap — all fresh content ingested.
+- **Hash manifest seeded** — 4,204 hashes from current + archived raw files loaded into `.seen_hashes.json` to prevent re-ingestion.
+- **Queue fully cleaned** — 2,078 re-ingested raw articles archived, 27 stale summaries archived. Pipeline starts from clean state.
+- **Dry run verified** — 8 feeds fetched in ~7s, 0 new (all in manifest), 2,078 skipped (seen). Full pipeline completed in ~100s including orchestrator.
+- **Commenter still runs in dry-run** — Orchestrator launches Playwright and visits 16 LinkedIn targets even with `--dry-run`. Wastes ~90s. Should be skipped in dry-run mode (future fix).
+
+### Session 9 (2026-04-02): Real-Time Pipeline Dashboard
+- **Pipeline output streaming** — `_execute_pipeline()` rewritten to stream subprocess stdout line-by-line into `_live_output[run_id]` shared buffer via `_read_stream()` helper. Uses `-u` flag for unbuffered Python output.
+- **WebSocket payload enhanced** — `/api/pipeline/ws` now includes `live_output` (last 50 lines) and `active_run_id` in every broadcast.
+- **`usePipelineStatus` React hook** — New hook at `dashboard/src/hooks/use-pipeline-status.ts`. Auto-reconnects on disconnect. Exposes `connected`, `activeRun`, `recentRuns`, `liveOutput`, `isRunning`.
+- **Runs page wired** — Live terminal console (`LiveOutputConsole` component) with auto-scroll, color-coded ERROR/WARN lines. WebSocket connection indicator (Live/Offline badge). WS data merged with REST data for seamless updates. Removed polling-based auto-refresh.
+- **Home page wired** — Pipeline status card shows running state with live output preview, or last run status (completed/failed). WebSocket connection indicator.
+- **dry_run passthrough fixed** — `main.py` now passes `dry_run=dry_run` to `run_orchestrator()`. Orchestrator respects both CLI flag and EngineMode.DRY_RUN.
+- **LinkedIn credentials set** — `LINKEDIN_ACCESS_TOKEN` and `LINKEDIN_ORG_URN` updated in `.env`.
+- **Test queue items cleaned** — All READY test/placeholder items set to SKIPPED to prevent accidental LinkedIn posting.
 
 ### Session 8 (2026-04-02): Phase 3 — Pipeline Execution + Data Layer
 - **Pipeline execution wired** — `POST /api/pipeline/run` now invokes `main.py` as async subprocess via `asyncio.create_subprocess_exec`. Full CLI flag passthrough (dry-run, skip-ingest, skip-generate, comments-only, replies-only). Stdout parsed for action counts. Concurrency guard prevents duplicate runs.
@@ -21,11 +39,18 @@ Phase 3 complete. Pipeline "Run Now" wired to subprocess execution, WebSocket ad
 - **LinkedIn validated the webhook** — challenge-response passed, endpoint registered in Developer Portal
 - **LinkedIn API keys approved** — full programmatic access granted
 
+### Session 8 E2E Bugs Fixed (commit `2c669e9`)
+- `pipeline.py` _PROJECT_ROOT resolved to `api/` — needed 3 dirname levels, not 2
+- `engine.py` line 78 still referenced `sheets` instead of `client` (500 error)
+- `engine.py` was passing Sheet-style keys (`Mode`, `Phase`) to DB client expecting lowercase
+- `db/client.py` log() lacked `persona` positional arg and `details` kwarg — orchestrator/commenter/replier all use SheetsClient signature
+- `feeds.py` ValidCategory missing DB categories (`ai_automation`, `tech_news`, `research`, `dev_tools`)
+- `content_calendar.py` used nonexistent `w.day_of_week` — fixed to use `_is_day_match(w.days_of_week, day)`
+
 ### Pending
-- End-to-end verification (start API + dashboard, verify all 18 pages, CRUD ops)
-- Pipeline dry run (full flow: ingest → summarize → generate → verify logs)
-- Update `LINKEDIN_ACCESS_TOKEN` in `.env` (currently placeholder)
-- Update `LINKEDIN_ORG_URN` in `.env` (currently `REPLACE_WITH_ORG_ID`)
+- Skip browser actions in dry-run mode (orchestrator still launches Playwright for commenter/replier)
+- Safety filter false positives: `\brates\b` and `\bproprietary\b` triggering on legitimate AI content
+- Content generation verification (wait for new articles to be published, then verify ingest → summarize → generate → post quality)
 - Deploy to Coolify (production deployment behind reverse proxy)
 
 ## Completed Work
