@@ -21,7 +21,7 @@ BLOCKED_PHRASES = [
     r"\bdm me\b",
     r"\bmy clients\b",
     r"\bfreelance\b",
-    r"\bconsulting\b",
+    r"\b(my|our|I offer|offering)\s+consulting\b",
     r"\bside work\b",
     r"\bmy rates\b",
     r"\bbook a call\b",

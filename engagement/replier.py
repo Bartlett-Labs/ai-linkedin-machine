@@ -232,10 +232,11 @@ async def run_replier(
                 logger.error("Error processing post %d: %s", post["element_index"], e)
                 continue
 
-    # Save tracker
-    tracker["replied_to"] = list(replied_set)
-    tracker["last_run"] = datetime.utcnow().isoformat()
-    _save_reply_tracker(tracker)
+    # Save tracker (only persist when actual replies were posted)
+    if not dry_run:
+        tracker["replied_to"] = list(replied_set)
+        tracker["last_run"] = datetime.utcnow().isoformat()
+        _save_reply_tracker(tracker)
 
     return results
 
