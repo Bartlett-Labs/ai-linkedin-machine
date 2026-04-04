@@ -496,6 +496,10 @@ async def get_post_comments(page: Page, post_index: int = 0) -> list[dict]:
     comments = []
     try:
         feed_posts = page.locator(SEL["feed_post"])
+        count = await feed_posts.count()
+        # Fallback: activity pages use div[data-urn] instead of div[role=listitem]
+        if count == 0:
+            feed_posts = page.locator(SEL["activity_post"])
         post = feed_posts.nth(post_index)
 
         # Click comment button to expand comments section
@@ -521,15 +525,32 @@ async def get_post_comments(page: Page, post_index: int = 0) -> list[dict]:
                 full_text = await el.inner_text()
 
                 # Extract author from profile link
-                author = "Unknown"
+                author = ""
                 author_link = el.locator(SEL["post_author_link"]).first
                 if await author_link.count() > 0:
                     author = (await author_link.inner_text()).split("\n")[0].strip()
 
+                # Fallback: use the first non-empty line as author name
+                if not author:
+                    lines = [l.strip() for l in full_text.split("\n") if l.strip()]
+                    if lines:
+                        # First line is often the author name
+                        candidate = lines[0]
+                        # Sanity check: author names are short (< 50 chars)
+                        # and don't look like post content
+                        if len(candidate) < 50 and not any(
+                            c in candidate for c in [".", "!", "?", ","]
+                        ):
+                            author = candidate
+                if not author:
+                    author = "Unknown"
+
                 # Clean up comment text (remove author name from beginning)
                 text = full_text.strip()
-                if text.startswith(author):
+                if author != "Unknown" and text.startswith(author):
                     text = text[len(author):].strip()
+                # Strip LinkedIn connection/degree indicators (e.g. "• 1st", "• 2nd")
+                text = re.sub(r'^[•·]\s*\d+(st|nd|rd|th)\s*', '', text).strip()
 
                 comments.append({
                     "author": author,

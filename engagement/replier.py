@@ -116,6 +116,10 @@ async def run_replier(
                 from browser.linkedin_actions import SEL
                 post_locators = page.locator(SEL["feed_post"])
                 count = await post_locators.count()
+                # Fallback: activity pages use div[data-urn]
+                if count == 0:
+                    post_locators = page.locator(SEL["activity_post"])
+                    count = await post_locators.count()
                 if post["element_index"] < count:
                     post_el = post_locators.nth(post["element_index"])
                     await post_el.scroll_into_view_if_needed()
@@ -123,8 +127,16 @@ async def run_replier(
                     comments = await get_post_comments(page, post["element_index"])
 
                     for comment_data in comments:
+                        # Skip our own comments (don't reply to ourselves)
+                        commenter = comment_data["author"]
+                        main_name = persona.get("display_name", persona["name"])
+                        if commenter and commenter.lower() in (
+                            main_name.lower(), "kyle bartlett", "kyle",
+                        ):
+                            continue
+
                         # Use author + text snippet as dedup key (URNs no longer available)
-                        comment_key = f"{post['author']}:{comment_data['author']}:{comment_data['text'][:30]}"
+                        comment_key = f"{post['author']}:{commenter}:{comment_data['text'][:30]}"
                         if comment_key in replied_set:
                             continue
 
@@ -187,13 +199,14 @@ async def run_replier(
                         }
                         results.append(result)
 
-                        log_reply(
-                            persona="MainUser",
-                            commenter=comment_data["author"],
-                            original_post_url="activity",
-                            comment_text=comment_data["text"],
-                            reply_text=reply_text,
-                        )
+                        if not dry_run:
+                            log_reply(
+                                persona="MainUser",
+                                commenter=comment_data["author"],
+                                original_post_url="activity",
+                                comment_text=comment_data["text"],
+                                reply_text=reply_text,
+                            )
 
                         if sheets_client:
                             sheets_client.log(

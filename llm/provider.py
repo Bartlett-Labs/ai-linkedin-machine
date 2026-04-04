@@ -181,7 +181,15 @@ def _try_claude(
     if not client:
         return None
 
-    model = os.getenv("CLAUDE_MODEL", "claude-opus-4-6-20250610")
+    model = os.getenv("CLAUDE_MODEL")
+    if not model:
+        # Auto-detect proxy: if ANTHROPIC_BASE_URL points to a LiteLLM/ai-router
+        # proxy, use the proxy-compatible model name format
+        base_url = os.getenv("ANTHROPIC_BASE_URL", "")
+        if "ai-router" in base_url or "litellm" in base_url:
+            model = "vertex_ai/claude-opus-4-6"
+        else:
+            model = "claude-opus-4-6-20250610"
 
     try:
         response = client.messages.create(
@@ -220,7 +228,7 @@ def _try_openai(
                 {"role": "user", "content": prompt},
             ],
             temperature=temperature,
-            max_tokens=max_tokens,
+            max_completion_tokens=max_tokens,
         )
         text = response.choices[0].message.content.strip()
         logger.debug("OpenAI generated %d chars (fallback)", len(text))
