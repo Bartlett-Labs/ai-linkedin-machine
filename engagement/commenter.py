@@ -79,7 +79,8 @@ async def run_commenter(
             # Interleave target visits with feed browsing for natural behavior.
             # Pattern: 2-3 feed comments → 1 target → feed scroll → 1 target → ...
             random.shuffle(targets)
-            target_iter = iter(targets[:remaining])
+            # Try up to 5x targets to account for 404s and empty profiles
+            target_iter = iter(targets[:remaining * 5])
 
             # Start with feed to look organic
             await navigate_to_feed(page)
@@ -173,8 +174,13 @@ async def _comment_on_target(
 
         # Navigate to the target's recent activity
         activity_url = url.rstrip("/") + "/recent-activity/all/"
-        await page.goto(activity_url, wait_until="domcontentloaded")
+        response = await page.goto(activity_url, wait_until="domcontentloaded")
         await asyncio.sleep(random.uniform(2.0, 4.0))
+
+        # Detect 404 redirects (invalid profile slugs)
+        if "/404" in page.url or (response and response.status == 404):
+            logger.info("Target profile not found (404): %s", target.name)
+            return None
 
         # Get their posts
         posts = await get_feed_posts(page, max_posts=5)
