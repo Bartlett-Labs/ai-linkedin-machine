@@ -85,8 +85,9 @@ async def check_for_challenge(page: Page) -> bool:
 # Last verified: 2026-02-08 via scripts/debug_feed.py
 # ---------------------------------------------------------------------------
 SEL = {
-    # Feed posts
+    # Feed posts (main feed uses listitem, activity pages use data-urn)
     "feed_post": "div[role='listitem']",
+    "activity_post": "div[data-urn]",
     "post_update": "[data-view-name='feed-full-update']",
     "post_time": "time",
     "post_author_link": "a[href*='/in/']",
@@ -183,6 +184,11 @@ async def get_feed_posts(page: Page, max_posts: int = 10) -> list[dict]:
     feed_posts = page.locator(SEL["feed_post"])
     count = await feed_posts.count()
 
+    # Fallback: activity pages use div[data-urn] instead of div[role=listitem]
+    if count == 0:
+        feed_posts = page.locator(SEL["activity_post"])
+        count = await feed_posts.count()
+
     for idx in range(min(count, max_posts)):
         try:
             post = feed_posts.nth(idx)
@@ -213,25 +219,42 @@ async def get_feed_posts(page: Page, max_posts: int = 10) -> list[dict]:
 
             # Extract post body text by removing UI chrome lines
             lines = full_text.strip().split("\n")
-            # Filter out button labels, reaction counts, and UI elements
-            noise = {"Like", "Comment", "Repost", "Send", "… more",
-                     "Feed post", "Follow", "Promoted"}
+            noise = {"Like", "Comment", "Repost", "Send", "… more", "…more",
+                     "Follow", "Promoted"}
             body_lines = []
+            found_timestamp = False
             for l in lines:
                 s = l.strip()
                 if not s:
                     continue
+                # Detect timestamp line ("1d •", "9h •", "2w •", etc.)
+                # Once found, everything after is post content
+                if not found_timestamp and re.match(
+                    r'^(\d+[hdwmo]\s*•|.*ago\s*•)', s
+                ):
+                    found_timestamp = True
+                    continue
+                if not found_timestamp:
+                    continue
+                # Filter UI noise from post content
                 if s in noise:
                     continue
-                # Skip reaction/comment/repost count lines like "62 reactions"
+                if re.match(r'^Feed post', s):
+                    continue
                 if re.match(r'^\d+\s*(reactions?|comments?|reposts?|likes?)$', s, re.I):
                     continue
-                # Skip standalone numbers (engagement counts)
-                if re.match(r'^\d+$', s):
+                if re.match(r'^\d[\d,]+$', s):
+                    continue
+                if s.startswith("Activate to view"):
+                    continue
+                if "Visible to anyone" in s:
                     continue
                 body_lines.append(s)
-            # Skip the first few lines (author name, title, connection, timestamp)
-            body_text = "\n".join(body_lines[3:]) if len(body_lines) > 3 else "\n".join(body_lines)
+            # Fallback if timestamp detection missed: skip first 3 header lines
+            if not body_lines and lines:
+                raw = [l.strip() for l in lines if l.strip()]
+                body_lines = raw[3:] if len(raw) > 3 else raw
+            body_text = "\n".join(body_lines)
 
             posts.append({
                 "text": body_text[:2000],
@@ -359,6 +382,12 @@ async def comment_on_post(page: Page, post_index: int, comment_text: str) -> boo
     try:
         feed_posts = page.locator(SEL["feed_post"])
         count = await feed_posts.count()
+
+        # Fallback: activity pages use div[data-urn]
+        if count == 0:
+            feed_posts = page.locator(SEL["activity_post"])
+            count = await feed_posts.count()
+
         if post_index >= count:
             logger.error("Post index %d out of range (%d posts)", post_index, count)
             return False
@@ -419,6 +448,12 @@ async def like_post(page: Page, post_index: int) -> bool:
     try:
         feed_posts = page.locator(SEL["feed_post"])
         count = await feed_posts.count()
+
+        # Fallback: activity pages use div[data-urn]
+        if count == 0:
+            feed_posts = page.locator(SEL["activity_post"])
+            count = await feed_posts.count()
+
         if post_index >= count:
             return False
 
