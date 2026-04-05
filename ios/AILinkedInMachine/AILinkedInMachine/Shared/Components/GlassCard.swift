@@ -91,10 +91,10 @@ struct HighlightCard<Content: View>: View {
             VStack(alignment: .leading) {
                 Text("Standard Card")
                     .font(.headline)
-                    .foregroundStyle(.textPrimary)
+                    .foregroundStyle(Color.textPrimary)
                 Text("Subtle depth with glass effect")
                     .font(.caption)
-                    .foregroundStyle(.textMuted)
+                    .foregroundStyle(Color.textMuted)
             }
         }
 
@@ -102,21 +102,21 @@ struct HighlightCard<Content: View>: View {
             VStack(alignment: .leading) {
                 Text("Accent Border Card")
                     .font(.headline)
-                    .foregroundStyle(.textPrimary)
+                    .foregroundStyle(Color.textPrimary)
                 Text("Angular gradient border for emphasis")
                     .font(.caption)
-                    .foregroundStyle(.textMuted)
+                    .foregroundStyle(Color.textMuted)
             }
         }
 
-        HighlightCard(color: .danger) {
+        HighlightCard(color: Color.danger) {
             VStack(alignment: .leading) {
                 Text("Highlighted Card")
                     .font(.headline)
-                    .foregroundStyle(.textPrimary)
+                    .foregroundStyle(Color.textPrimary)
                 Text("For critical/actionable content")
                     .font(.caption)
-                    .foregroundStyle(.textMuted)
+                    .foregroundStyle(Color.textMuted)
             }
         }
     }

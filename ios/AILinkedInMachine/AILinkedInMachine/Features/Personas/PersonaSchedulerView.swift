@@ -55,10 +55,10 @@ struct PersonaStatusCard: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(persona.displayName)
                             .font(.system(size: 15, weight: .medium))
-                            .foregroundStyle(.textPrimary)
+                            .foregroundStyle(Color.textPrimary)
                         Text(persona.name)
                             .font(.system(size: 11, design: .monospaced))
-                            .foregroundStyle(.textMuted)
+                            .foregroundStyle(Color.textMuted)
                     }
                     Spacer()
                     statusBadge
@@ -94,7 +94,7 @@ struct PersonaStatusCard: View {
                         Text("Run Cycle")
                             .font(.system(size: 12, weight: .medium))
                     }
-                    .foregroundStyle(.accent)
+                    .foregroundStyle(Color.accent)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
                     .background(.accent.opacity(0.1))
@@ -124,11 +124,11 @@ struct PersonaStatusCard: View {
     @ViewBuilder
     private var statusBadge: some View {
         if persona.isRunning {
-            StatusBadge(text: "RUNNING", color: .accent)
+            StatusBadge(text: "RUNNING", color: Color.accent)
         } else if persona.inActiveHours {
-            StatusBadge(text: "ACTIVE", color: .success)
+            StatusBadge(text: "ACTIVE", color: Color.success)
         } else {
-            StatusBadge(text: "INACTIVE", color: .textMuted)
+            StatusBadge(text: "INACTIVE", color: Color.textMuted)
         }
     }
 
@@ -136,10 +136,10 @@ struct PersonaStatusCard: View {
         VStack(alignment: .leading, spacing: 1) {
             Text(label.uppercased())
                 .font(.system(size: 9, weight: .semibold))
-                .foregroundStyle(.textMuted)
+                .foregroundStyle(Color.textMuted)
             Text(value)
                 .font(.system(size: 12, design: .monospaced))
-                .foregroundStyle(.textSecondary)
+                .foregroundStyle(Color.textSecondary)
         }
     }
 }

@@ -52,7 +52,7 @@ struct DashboardView: View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
             Text(greetingText)
                 .font(.system(size: DesignTokens.FontSize.title2, weight: .bold))
-                .foregroundStyle(.textPrimary)
+                .foregroundStyle(Color.textPrimary)
 
             HStack(spacing: DesignTokens.Spacing.sm) {
                 // Total actions today pill
@@ -62,7 +62,7 @@ struct DashboardView: View {
                     Text("\(vm.totalActionsToday) actions today")
                         .font(.system(size: 11, weight: .medium, design: .monospaced))
                 }
-                .foregroundStyle(.accent)
+                .foregroundStyle(Color.accent)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 4)
                 .background(Color.accent.opacity(0.1))
@@ -72,12 +72,12 @@ struct DashboardView: View {
                 if vm.activePersonaCount > 0 {
                     HStack(spacing: 4) {
                         Circle()
-                            .fill(.success)
+                            .fill(Color.success)
                             .frame(width: 5, height: 5)
                         Text("\(vm.activePersonaCount) personas active")
                             .font(.system(size: 11, weight: .medium, design: .monospaced))
                     }
-                    .foregroundStyle(.success)
+                    .foregroundStyle(Color.success)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)
                     .background(Color.success.opacity(0.1))
@@ -113,17 +113,17 @@ struct DashboardView: View {
                         .frame(width: 36, height: 36)
                     Image(systemName: "exclamationmark.octagon.fill")
                         .font(.system(size: 18))
-                        .foregroundStyle(.danger)
+                        .foregroundStyle(Color.danger)
                 }
                 .shadow(color: .danger.opacity(killSwitchPulse ? 0.5 : 0.2), radius: killSwitchPulse ? 12 : 4)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("KILL SWITCH ACTIVE")
                         .font(.system(size: 12, weight: .black, design: .monospaced))
-                        .foregroundStyle(.danger)
+                        .foregroundStyle(Color.danger)
                     Text(ks.message)
                         .font(.system(size: 11))
-                        .foregroundStyle(.textMuted)
+                        .foregroundStyle(Color.textMuted)
                         .lineLimit(1)
                 }
 
@@ -207,11 +207,11 @@ struct DashboardView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Engine")
                             .font(.system(size: DesignTokens.FontSize.title3, weight: .semibold))
-                            .foregroundStyle(.textPrimary)
+                            .foregroundStyle(Color.textPrimary)
                         if let engine = vm.engineControl {
                             Text(engine.lastRun?.toDate()?.relativeDisplay() ?? "No runs yet")
                                 .font(.system(size: 10, design: .monospaced))
-                                .foregroundStyle(.textMuted)
+                                .foregroundStyle(Color.textMuted)
                         }
                     }
                     Spacer()
@@ -243,7 +243,7 @@ struct DashboardView: View {
 
     private var engineStatusRing: some View {
         let isLive = vm.engineControl?.mode.uppercased() == "LIVE"
-        let ringColor: Color = isLive ? .success : (vm.engineControl?.mode.uppercased() == "PAUSED" ? .danger : .warning)
+        let ringColor: Color = isLive ?Color.success : (vm.engineControl?.mode.uppercased() == "PAUSED" ?Color.danger : Color.warning)
 
         return ZStack {
             // Outer glow ring
@@ -270,12 +270,12 @@ struct DashboardView: View {
         HStack(spacing: DesignTokens.Spacing.sm) {
             Text("PHASE")
                 .font(.system(size: 9, weight: .bold, design: .monospaced))
-                .foregroundStyle(.textMuted)
+                .foregroundStyle(Color.textMuted)
                 .tracking(1)
 
             Text(phase.uppercased())
                 .font(.system(size: 12, weight: .bold, design: .monospaced))
-                .foregroundStyle(.accent)
+                .foregroundStyle(Color.accent)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 4)
                 .background(Color.accent.opacity(0.1))
@@ -287,12 +287,12 @@ struct DashboardView: View {
         HStack(spacing: 6) {
             Image(systemName: isOn ? "\(icon).fill" : icon)
                 .font(.system(size: 10))
-                .foregroundStyle(isOn ? .accent : .textMuted.opacity(0.5))
+                .foregroundStyle(isOn ?Color.accent : .textMuted.opacity(0.5))
                 .frame(width: 14)
 
             Text(label)
                 .font(.system(size: 12))
-                .foregroundStyle(isOn ? .textSecondary : .textMuted.opacity(0.5))
+                .foregroundStyle(isOn ?Color.textSecondary : .textMuted.opacity(0.5))
 
             Spacer()
 
@@ -316,12 +316,12 @@ struct DashboardView: View {
                             .frame(width: 32, height: 32)
                         Image(systemName: "arrow.triangle.2.circlepath")
                             .font(.system(size: 14, weight: .medium))
-                            .foregroundStyle(.accent)
+                            .foregroundStyle(Color.accent)
                     }
 
                     Text("Pipeline")
                         .font(.system(size: DesignTokens.FontSize.title3, weight: .semibold))
-                        .foregroundStyle(.textPrimary)
+                        .foregroundStyle(Color.textPrimary)
 
                     Spacer()
 
@@ -333,25 +333,25 @@ struct DashboardView: View {
                 if let run = vm.latestRun {
                     // Stats row with mini bars
                     HStack(spacing: 0) {
-                        pipelineStatBar(label: "Posts", value: run.postsMade, color: .success)
-                        pipelineStatBar(label: "Comments", value: run.commentsMade, color: .accent)
-                        pipelineStatBar(label: "Replies", value: run.repliesMade, color: .warning)
-                        pipelineStatBar(label: "Phantom", value: run.phantomActions, color: .textSecondary)
+                        pipelineStatBar(label: "Posts", value: run.postsMade, color: Color.success)
+                        pipelineStatBar(label: "Comments", value: run.commentsMade, color: Color.accent)
+                        pipelineStatBar(label: "Replies", value: run.repliesMade, color: Color.warning)
+                        pipelineStatBar(label: "Phantom", value: run.phantomActions, color: Color.textSecondary)
                     }
 
                     if let started = run.startedAt {
                         Text("Last run \(started.toDate()?.relativeDisplay() ?? started)")
                             .font(.system(size: 10, design: .monospaced))
-                            .foregroundStyle(.textMuted)
+                            .foregroundStyle(Color.textMuted)
                     }
                 } else {
                     HStack(spacing: DesignTokens.Spacing.sm) {
                         Image(systemName: "clock")
                             .font(.system(size: 11))
-                            .foregroundStyle(.textMuted)
+                            .foregroundStyle(Color.textMuted)
                         Text("No pipeline runs yet")
                             .font(.system(size: 12))
-                            .foregroundStyle(.textMuted)
+                            .foregroundStyle(Color.textMuted)
                     }
                     .padding(.vertical, DesignTokens.Spacing.sm)
                 }
@@ -360,9 +360,9 @@ struct DashboardView: View {
                     Divider().overlay(Color.appBorder.opacity(0.5))
 
                     HStack(spacing: 0) {
-                        queueStatPill(label: "Total", value: stats.total, color: .textSecondary)
-                        queueStatPill(label: "Ready", value: stats.ready ?? 0, color: .warning)
-                        queueStatPill(label: "Failed", value: stats.failed ?? 0, color: .danger)
+                        queueStatPill(label: "Total", value: stats.total, color: Color.textSecondary)
+                        queueStatPill(label: "Ready", value: stats.ready ?? 0, color: Color.warning)
+                        queueStatPill(label: "Failed", value: stats.failed ?? 0, color: Color.danger)
                     }
                 }
             }
@@ -384,7 +384,7 @@ struct DashboardView: View {
 
             Text(label)
                 .font(.system(size: 9, weight: .medium))
-                .foregroundStyle(.textMuted)
+                .foregroundStyle(Color.textMuted)
         }
         .frame(maxWidth: .infinity)
     }
@@ -396,7 +396,7 @@ struct DashboardView: View {
                 .foregroundStyle(value > 0 ? color : .textMuted.opacity(0.4))
             Text(label)
                 .font(.system(size: 9))
-                .foregroundStyle(.textMuted)
+                .foregroundStyle(Color.textMuted)
         }
         .frame(maxWidth: .infinity)
     }
@@ -413,12 +413,12 @@ struct DashboardView: View {
                             .frame(width: 32, height: 32)
                         Image(systemName: "person.3.fill")
                             .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(.accent)
+                            .foregroundStyle(Color.accent)
                     }
 
                     Text("Personas")
                         .font(.system(size: DesignTokens.FontSize.title3, weight: .semibold))
-                        .foregroundStyle(.textPrimary)
+                        .foregroundStyle(Color.textPrimary)
 
                     Spacer()
 
@@ -429,7 +429,7 @@ struct DashboardView: View {
                             .frame(width: 6, height: 6)
                         Text("\(vm.activePersonaCount)/\(vm.heartbeatStatus.count)")
                             .font(.system(size: 12, weight: .medium, design: .monospaced))
-                            .foregroundStyle(vm.activePersonaCount > 0 ? .success : .textMuted)
+                            .foregroundStyle(vm.activePersonaCount > 0 ?Color.success : Color.textMuted)
                     }
                 }
 
@@ -453,14 +453,14 @@ struct DashboardView: View {
                         .frame(width: 16, height: 16)
                 }
                 Circle()
-                    .fill(isRunning ? .accent : (isActive ? .success : .textMuted.opacity(0.3)))
+                    .fill(isRunning ?Color.accent : (isActive ?Color.success : .textMuted.opacity(0.3)))
                     .frame(width: 8, height: 8)
             }
             .shadow(color: isRunning ? .accent.opacity(0.5) : .clear, radius: 4)
 
             Text(persona.displayName)
                 .font(.system(size: 13, weight: isRunning ? .semibold : .regular))
-                .foregroundStyle(isActive ? .textPrimary : .textMuted)
+                .foregroundStyle(isActive ?Color.textPrimary : Color.textMuted)
 
             Spacer()
 
@@ -471,7 +471,7 @@ struct DashboardView: View {
                         .tint(.accent)
                     Text("RUNNING")
                         .font(.system(size: 9, weight: .bold, design: .monospaced))
-                        .foregroundStyle(.accent)
+                        .foregroundStyle(Color.accent)
                 }
             } else if isActive {
                 Text("ACTIVE")
@@ -498,11 +498,11 @@ struct DashboardView: View {
                             .frame(width: 32, height: 32)
                         Image(systemName: "bolt.fill")
                             .font(.system(size: 14, weight: .medium))
-                            .foregroundStyle(.accent)
+                            .foregroundStyle(Color.accent)
                     }
                     Text("Quick Actions")
                         .font(.system(size: DesignTokens.FontSize.title3, weight: .semibold))
-                        .foregroundStyle(.textPrimary)
+                        .foregroundStyle(Color.textPrimary)
                 }
 
                 // Primary actions

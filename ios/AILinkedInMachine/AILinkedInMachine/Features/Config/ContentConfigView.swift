@@ -9,23 +9,23 @@ struct ContentConfigView: View {
             ForEach(items) { item in
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
                     HStack {
-                        StatusBadge(text: item.category, color: .accent)
-                        StatusBadge(text: item.postType, color: .textMuted)
+                        StatusBadge(text: item.category, color: Color.accent)
+                        StatusBadge(text: item.postType, color: Color.textMuted)
                         Spacer()
                         if item.ready {
-                            StatusBadge(text: "READY", color: .success)
+                            StatusBadge(text: "READY", color: Color.success)
                         } else {
-                            StatusBadge(text: "DRAFT", color: .warning)
+                            StatusBadge(text: "DRAFT", color: Color.warning)
                         }
                     }
                     Text(item.draft)
                         .font(.system(size: 13))
-                        .foregroundStyle(.textSecondary)
+                        .foregroundStyle(Color.textSecondary)
                         .lineLimit(4)
                     if let notes = item.notes, !notes.isEmpty {
                         Text(notes)
                             .font(.system(size: 11))
-                            .foregroundStyle(.textMuted)
+                            .foregroundStyle(Color.textMuted)
                     }
                 }
                 .padding(.vertical, 4)

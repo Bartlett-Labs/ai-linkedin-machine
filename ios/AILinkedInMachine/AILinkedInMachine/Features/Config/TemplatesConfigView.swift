@@ -9,22 +9,22 @@ struct TemplatesConfigView: View {
             ForEach(templates) { template in
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
                     HStack(spacing: 6) {
-                        StatusBadge(text: template.persona, color: .accent)
+                        StatusBadge(text: template.persona, color: Color.accent)
                         if !template.tone.isEmpty {
-                            StatusBadge(text: template.tone, color: .textMuted)
+                            StatusBadge(text: template.tone, color: Color.textMuted)
                         }
                         if !template.category.isEmpty {
-                            StatusBadge(text: template.category, color: .textMuted)
+                            StatusBadge(text: template.category, color: Color.textMuted)
                         }
                     }
                     Text(template.templateText)
                         .font(.system(size: 13))
-                        .foregroundStyle(.textSecondary)
+                        .foregroundStyle(Color.textSecondary)
                         .lineLimit(3)
                     if !template.exampleUse.isEmpty {
                         Text("Example: \(template.exampleUse)")
                             .font(.system(size: 11))
-                            .foregroundStyle(.textMuted)
+                            .foregroundStyle(Color.textMuted)
                     }
                 }
                 .padding(.vertical, 4)

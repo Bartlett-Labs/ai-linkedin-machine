@@ -11,22 +11,22 @@ struct LeadsListView: View {
                     HStack {
                         Text(lead.name)
                             .font(.system(size: 14, weight: .medium))
-                            .foregroundStyle(.textPrimary)
+                            .foregroundStyle(Color.textPrimary)
                         Spacer()
                         scoreBadge(lead.score)
                     }
                     Text("\(lead.title) at \(lead.company)")
                         .font(.system(size: 12))
-                        .foregroundStyle(.textSecondary)
+                        .foregroundStyle(Color.textSecondary)
                     HStack {
                         StatusBadge(text: lead.status)
                         Text("\(lead.interactionCount) interactions")
                             .font(.system(size: 10, design: .monospaced))
-                            .foregroundStyle(.textMuted)
+                            .foregroundStyle(Color.textMuted)
                         Spacer()
                         Text(lead.discoveredAt.toDate()?.relativeDisplay() ?? "")
                             .font(.system(size: 10, design: .monospaced))
-                            .foregroundStyle(.textMuted)
+                            .foregroundStyle(Color.textMuted)
                     }
                 }
                 .padding(.vertical, 4)
@@ -46,7 +46,7 @@ struct LeadsListView: View {
     }
 
     private func scoreBadge(_ score: Int) -> some View {
-        let color: Color = score >= 50 ? .success : score >= 30 ? .warning : .textMuted
+        let color: Color = score >= 50 ?Color.success : score >= 30 ?Color.warning : .textMuted
         return Text("\(score)")
             .font(.system(size: 12, weight: .bold, design: .monospaced))
             .foregroundStyle(color)

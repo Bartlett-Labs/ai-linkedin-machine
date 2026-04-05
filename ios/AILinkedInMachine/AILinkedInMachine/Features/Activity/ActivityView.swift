@@ -56,13 +56,13 @@ struct ActivityView: View {
                 } label: {
                     Text(section.rawValue)
                         .font(.system(size: 13, weight: selectedSection == section ? .semibold : .regular))
-                        .foregroundStyle(selectedSection == section ? .accent : .textMuted)
+                        .foregroundStyle(selectedSection == section ?Color.accent : Color.textMuted)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
                         .overlay(alignment: .bottom) {
                             if selectedSection == section {
                                 Rectangle()
-                                    .fill(.accent)
+                                    .fill(Color.accent)
                                     .frame(height: 2)
                             }
                         }
@@ -71,7 +71,7 @@ struct ActivityView: View {
         }
         .background(.surface1)
         .overlay(alignment: .bottom) {
-            Rectangle().fill(.appBorder).frame(height: 1)
+            Rectangle().fill(Color.appBorder).frame(height: 1)
         }
     }
 
@@ -97,42 +97,42 @@ struct ActivityView: View {
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
                 Text("30-Day Engagement")
                     .font(.headline)
-                    .foregroundStyle(.textPrimary)
+                    .foregroundStyle(Color.textPrimary)
 
                 Chart(vm.trends) { trend in
                     LineMark(
                         x: .value("Date", trend.date),
                         y: .value("Count", trend.comments)
                     )
-                    .foregroundStyle(.accent)
+                    .foregroundStyle(Color.accent)
                     .interpolationMethod(.catmullRom)
 
                     LineMark(
                         x: .value("Date", trend.date),
                         y: .value("Count", trend.posts)
                     )
-                    .foregroundStyle(.success)
+                    .foregroundStyle(Color.success)
                     .interpolationMethod(.catmullRom)
                 }
                 .chartYAxis {
                     AxisMarks { _ in
                         AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5))
-                            .foregroundStyle(.appBorder)
+                            .foregroundStyle(Color.appBorder)
                         AxisValueLabel()
-                            .foregroundStyle(.textMuted)
+                            .foregroundStyle(Color.textMuted)
                     }
                 }
                 .chartXAxis {
                     AxisMarks(values: .automatic(desiredCount: 5)) { _ in
                         AxisValueLabel()
-                            .foregroundStyle(.textMuted)
+                            .foregroundStyle(Color.textMuted)
                     }
                 }
                 .frame(height: 200)
 
                 HStack(spacing: DesignTokens.Spacing.lg) {
-                    legendDot("Comments", color: .accent)
-                    legendDot("Posts", color: .success)
+                    legendDot("Comments", color: Color.accent)
+                    legendDot("Posts", color: Color.success)
                 }
             }
         }
@@ -141,7 +141,7 @@ struct ActivityView: View {
     private func legendDot(_ label: String, color: Color) -> some View {
         HStack(spacing: 4) {
             Circle().fill(color).frame(width: 8, height: 8)
-            Text(label).font(.caption).foregroundStyle(.textMuted)
+            Text(label).font(.caption).foregroundStyle(Color.textMuted)
         }
     }
 
@@ -150,17 +150,17 @@ struct ActivityView: View {
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
                 Text("Persona Breakdown")
                     .font(.headline)
-                    .foregroundStyle(.textPrimary)
+                    .foregroundStyle(Color.textPrimary)
 
                 ForEach(vm.personaStats) { stat in
                     HStack {
                         Text(stat.persona)
                             .font(.system(size: 13))
-                            .foregroundStyle(.textPrimary)
+                            .foregroundStyle(Color.textPrimary)
                         Spacer()
                         Text("\(stat.totalActions)")
                             .font(.system(size: 13, weight: .semibold, design: .monospaced))
-                            .foregroundStyle(.accent)
+                            .foregroundStyle(Color.accent)
                     }
                 }
             }
@@ -183,11 +183,11 @@ struct ActivityView: View {
                                 StatusBadge(text: entry.result)
                                 Text(entry.action)
                                     .font(.system(size: 12, weight: .medium))
-                                    .foregroundStyle(.textPrimary)
+                                    .foregroundStyle(Color.textPrimary)
                                 Spacer()
                                 Text(entry.timestamp.toDate()?.relativeDisplay() ?? "")
                                     .font(.system(size: 10, design: .monospaced))
-                                    .foregroundStyle(.textMuted)
+                                    .foregroundStyle(Color.textMuted)
                             }
                             HStack {
                                 Text(entry.module)
@@ -196,7 +196,7 @@ struct ActivityView: View {
                                 if !entry.target.isEmpty {
                                     Text(entry.target)
                                         .font(.system(size: 10))
-                                        .foregroundStyle(.textMuted)
+                                        .foregroundStyle(Color.textMuted)
                                         .lineLimit(1)
                                 }
                             }
@@ -228,25 +228,25 @@ struct ActivityView: View {
                             HStack {
                                 Text("#\(run.id)")
                                     .font(.system(size: 12, weight: .bold, design: .monospaced))
-                                    .foregroundStyle(.textPrimary)
+                                    .foregroundStyle(Color.textPrimary)
                                 StatusBadge(text: run.status)
                                 Spacer()
                                 if let started = run.startedAt {
                                     Text(started.toDate()?.relativeDisplay() ?? "")
                                         .font(.system(size: 10, design: .monospaced))
-                                        .foregroundStyle(.textMuted)
+                                        .foregroundStyle(Color.textMuted)
                                 }
                             }
                             HStack(spacing: DesignTokens.Spacing.md) {
-                                runStat("Posts", value: run.postsMade, color: .success)
-                                runStat("Comments", value: run.commentsMade, color: .accent)
-                                runStat("Replies", value: run.repliesMade, color: .warning)
-                                runStat("Phantom", value: run.phantomActions, color: .textSecondary)
+                                runStat("Posts", value: run.postsMade, color: Color.success)
+                                runStat("Comments", value: run.commentsMade, color: Color.accent)
+                                runStat("Replies", value: run.repliesMade, color: Color.warning)
+                                runStat("Phantom", value: run.phantomActions, color: Color.textSecondary)
                             }
                             if !run.summary.isEmpty {
                                 Text(run.summary)
                                     .font(.system(size: 11))
-                                    .foregroundStyle(.textMuted)
+                                    .foregroundStyle(Color.textMuted)
                                     .lineLimit(2)
                             }
                         }
@@ -269,7 +269,7 @@ struct ActivityView: View {
                 .foregroundStyle(color)
             Text(label)
                 .font(.system(size: 9))
-                .foregroundStyle(.textMuted)
+                .foregroundStyle(Color.textMuted)
         }
     }
 
@@ -291,7 +291,7 @@ struct ActivityView: View {
                             }
                         } header: {
                             Text("Pipeline Errors (\(vm.pipelineErrors.count))")
-                                .foregroundStyle(.danger)
+                                .foregroundStyle(Color.danger)
                         }
                     }
                     if !vm.systemErrors.isEmpty {
@@ -301,7 +301,7 @@ struct ActivityView: View {
                             }
                         } header: {
                             Text("System Errors (\(vm.systemErrors.count))")
-                                .foregroundStyle(.warning)
+                                .foregroundStyle(Color.warning)
                         }
                     }
                 }
@@ -317,18 +317,18 @@ struct ActivityView: View {
             HStack {
                 Text(err.source)
                     .font(.system(size: 12, weight: .medium, design: .monospaced))
-                    .foregroundStyle(.danger)
+                    .foregroundStyle(Color.danger)
                 Spacer()
                 if let ts = err.timestamp {
                     Text(ts.toDate()?.relativeDisplay() ?? "")
                         .font(.system(size: 10, design: .monospaced))
-                        .foregroundStyle(.textMuted)
+                        .foregroundStyle(Color.textMuted)
                 }
             }
             if let summary = err.summary, !summary.isEmpty {
                 Text(summary)
                     .font(.system(size: 11))
-                    .foregroundStyle(.textSecondary)
+                    .foregroundStyle(Color.textSecondary)
                     .lineLimit(3)
             }
         }

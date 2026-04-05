@@ -13,19 +13,19 @@ struct PersonasConfigView: View {
                             HStack {
                                 Text(persona.displayName)
                                     .font(.system(size: 15, weight: .medium))
-                                    .foregroundStyle(.textPrimary)
+                                    .foregroundStyle(Color.textPrimary)
                                 Spacer()
                             }
                             Text(persona.name)
                                 .font(.system(size: 11, design: .monospaced))
-                                .foregroundStyle(.textMuted)
+                                .foregroundStyle(Color.textMuted)
                             Text(persona.persona)
                                 .font(.system(size: 13))
-                                .foregroundStyle(.textSecondary)
+                                .foregroundStyle(Color.textSecondary)
                             if let location = persona.location {
                                 Label(location, systemImage: "mappin")
                                     .font(.system(size: 11))
-                                    .foregroundStyle(.textMuted)
+                                    .foregroundStyle(Color.textMuted)
                             }
                         }
                     }

@@ -9,7 +9,7 @@ struct LoadingView: View {
                 .tint(.accent)
             Text(message)
                 .font(.caption)
-                .foregroundStyle(.textMuted)
+                .foregroundStyle(Color.textMuted)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -43,10 +43,10 @@ struct AsyncContentView<T, Content: View>: View {
                 VStack(spacing: DesignTokens.Spacing.md) {
                     Image(systemName: "exclamationmark.triangle")
                         .font(.largeTitle)
-                        .foregroundStyle(.danger)
+                        .foregroundStyle(Color.danger)
                     Text(error.localizedDescription)
                         .font(.caption)
-                        .foregroundStyle(.textMuted)
+                        .foregroundStyle(Color.textMuted)
                         .multilineTextAlignment(.center)
                     Button("Retry") {
                         Task { await retry() }

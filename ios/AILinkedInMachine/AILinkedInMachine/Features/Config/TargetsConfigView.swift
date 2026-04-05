@@ -17,23 +17,23 @@ struct TargetsConfigView: View {
                     HStack {
                         Text(target.name)
                             .font(.system(size: 14, weight: .medium))
-                            .foregroundStyle(.textPrimary)
+                            .foregroundStyle(Color.textPrimary)
                         Spacer()
                         Text("P\(target.priority)")
                             .font(.system(size: 11, weight: .bold, design: .monospaced))
-                            .foregroundStyle(.accent)
+                            .foregroundStyle(Color.accent)
                     }
                     HStack {
-                        StatusBadge(text: target.category, color: catColors[target.category] ?? .textMuted)
+                        StatusBadge(text: target.category, color: catColors[target.category] ??Color.textMuted)
                         Spacer()
                         Text(target.lastCommentDate ?? "Never")
                             .font(.system(size: 10, design: .monospaced))
-                            .foregroundStyle(.textMuted)
+                            .foregroundStyle(Color.textMuted)
                     }
                     if let notes = target.notes, !notes.isEmpty {
                         Text(notes)
                             .font(.system(size: 11))
-                            .foregroundStyle(.textMuted)
+                            .foregroundStyle(Color.textMuted)
                     }
                 }
                 .padding(.vertical, 4)

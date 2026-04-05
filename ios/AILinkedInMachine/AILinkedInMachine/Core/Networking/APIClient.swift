@@ -1,7 +1,7 @@
 import Foundation
 
 @Observable
-final class APIClient {
+final class APIClient: @unchecked Sendable {
     var baseURL: String
     var apiKey: String
 

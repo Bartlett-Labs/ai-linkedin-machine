@@ -39,10 +39,10 @@ struct RulesConfigView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(rule.trigger)
                             .font(.system(size: 13))
-                            .foregroundStyle(.textPrimary)
+                            .foregroundStyle(Color.textPrimary)
                         Text(rule.conditionType)
                             .font(.system(size: 10, design: .monospaced))
-                            .foregroundStyle(.textMuted)
+                            .foregroundStyle(Color.textMuted)
                     }
                     Spacer()
                     StatusBadge(text: rule.action, color: actionColor(rule.action))
@@ -61,9 +61,9 @@ struct RulesConfigView: View {
                 HStack {
                     Text(term.term)
                         .font(.system(size: 13))
-                        .foregroundStyle(.textPrimary)
+                        .foregroundStyle(Color.textPrimary)
                     Spacer()
-                    StatusBadge(text: term.response, color: term.response == "BLOCK" ? .danger : .warning)
+                    StatusBadge(text: term.response, color: term.response == "BLOCK" ?Color.danger : Color.warning)
                 }
                 .listRowBackground(Color.surface1)
                 .listRowSeparatorTint(.appBorder)

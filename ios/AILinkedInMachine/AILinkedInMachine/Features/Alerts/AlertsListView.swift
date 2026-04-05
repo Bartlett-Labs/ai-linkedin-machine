@@ -48,7 +48,7 @@ struct AlertsListView: View {
                     if vm.unrespondedCount > 0 {
                         Text("\(vm.unrespondedCount) new")
                             .font(.system(size: 12, weight: .medium, design: .monospaced))
-                            .foregroundStyle(.warning)
+                            .foregroundStyle(Color.warning)
                     }
                 }
             }
@@ -77,18 +77,18 @@ struct AlertRow: View {
                     Text(elapsedText)
                         .font(.system(size: 10, design: .monospaced))
                 }
-                .foregroundStyle(.textMuted)
+                .foregroundStyle(Color.textMuted)
 
                 if alert.responded {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 14))
-                        .foregroundStyle(.success)
+                        .foregroundStyle(Color.success)
                 }
             }
 
             Text(alert.commentText)
                 .font(.system(size: 13))
-                .foregroundStyle(.textPrimary)
+                .foregroundStyle(Color.textPrimary)
                 .lineLimit(3)
 
             HStack(spacing: DesignTokens.Spacing.sm) {
@@ -101,7 +101,7 @@ struct AlertRow: View {
                 if !alert.postTitle.isEmpty {
                     Text(alert.postTitle)
                         .font(.system(size: 10))
-                        .foregroundStyle(.textMuted)
+                        .foregroundStyle(Color.textMuted)
                         .lineLimit(1)
                 }
             }
@@ -114,7 +114,7 @@ struct AlertRow: View {
                         Text("Open on LinkedIn")
                             .font(.system(size: 11, weight: .medium))
                     }
-                    .foregroundStyle(.accent)
+                    .foregroundStyle(Color.accent)
                 }
             }
         }

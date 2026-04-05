@@ -40,10 +40,10 @@ struct EngineConfigView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Kill Switch")
                         .font(.headline)
-                        .foregroundStyle(.textPrimary)
+                        .foregroundStyle(Color.textPrimary)
                     Text(ks.active ? "System is STOPPED" : "System is operational")
                         .font(.caption)
-                        .foregroundStyle(ks.active ? .danger : .success)
+                        .foregroundStyle(ks.active ? Color.danger : Color.success)
                 }
                 Spacer()
                 Button {
@@ -72,13 +72,13 @@ struct EngineConfigView: View {
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
                 Text("Engine Configuration")
                     .font(.headline)
-                    .foregroundStyle(.textPrimary)
+                    .foregroundStyle(Color.textPrimary)
 
                 configRow("Mode", value: eng.mode)
                 configRow("Phase", value: eng.phase)
                 configRow("Last Run", value: eng.lastRun?.toDate()?.shortDisplay() ?? "Never")
 
-                Divider().overlay(.appBorder)
+                Divider().overlay(Color.appBorder)
 
                 toggleItem("Main User Posting", isOn: eng.mainUserPosting) {
                     try? await apiClient.updateEngine(EngineUpdate(mainUserPosting: !eng.mainUserPosting))
@@ -104,11 +104,11 @@ struct EngineConfigView: View {
         HStack {
             Text(label)
                 .font(.system(size: 13))
-                .foregroundStyle(.textMuted)
+                .foregroundStyle(Color.textMuted)
             Spacer()
             Text(value)
                 .font(.system(size: 13, weight: .medium, design: .monospaced))
-                .foregroundStyle(.textSecondary)
+                .foregroundStyle(Color.textSecondary)
         }
     }
 
@@ -116,13 +116,13 @@ struct EngineConfigView: View {
         HStack {
             Text(label)
                 .font(.system(size: 13))
-                .foregroundStyle(.textPrimary)
+                .foregroundStyle(Color.textPrimary)
             Spacer()
             Button {
                 Task { await action() }
             } label: {
                 Image(systemName: isOn ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(isOn ? .success : .textMuted)
+                    .foregroundStyle(isOn ? Color.success : Color.textMuted)
                     .font(.system(size: 20))
             }
         }

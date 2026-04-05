@@ -28,9 +28,9 @@ struct ConnectionsView: View {
 
     private func statsRow(_ s: ConnectorStatus) -> some View {
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: DesignTokens.Spacing.sm) {
-            StatCard(title: "Sent Today", value: "\(s.sentToday)/\(s.dailyLimit)", icon: "paperplane.fill", color: .accent)
-            StatCard(title: "Accepted", value: "\(s.totalAccepted)", icon: "checkmark.circle.fill", color: .success)
-            StatCard(title: "Remaining", value: "\(s.remaining)", icon: "clock.fill", color: .warning)
+            StatCard(title: "Sent Today", value: "\(s.sentToday)/\(s.dailyLimit)", icon: "paperplane.fill", color: Color.accent)
+            StatCard(title: "Accepted", value: "\(s.totalAccepted)", icon: "checkmark.circle.fill", color: Color.success)
+            StatCard(title: "Remaining", value: "\(s.remaining)", icon: "clock.fill", color: Color.warning)
         }
     }
 
@@ -38,7 +38,7 @@ struct ConnectionsView: View {
         VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
             Text("Recent Requests")
                 .font(.headline)
-                .foregroundStyle(.textPrimary)
+                .foregroundStyle(Color.textPrimary)
 
             ForEach(requests) { req in
                 GlassCard {
@@ -46,18 +46,18 @@ struct ConnectionsView: View {
                         HStack {
                             Text(req.name)
                                 .font(.system(size: 14, weight: .medium))
-                                .foregroundStyle(.textPrimary)
+                                .foregroundStyle(Color.textPrimary)
                             Spacer()
-                            StatusBadge(text: req.source, color: .accent)
+                            StatusBadge(text: req.source, color: Color.accent)
                         }
                         Text(req.headline)
                             .font(.system(size: 12))
-                            .foregroundStyle(.textSecondary)
+                            .foregroundStyle(Color.textSecondary)
                             .lineLimit(2)
                         if !req.note.isEmpty {
                             Text(req.note)
                                 .font(.system(size: 11))
-                                .foregroundStyle(.textMuted)
+                                .foregroundStyle(Color.textMuted)
                                 .lineLimit(2)
                         }
                     }

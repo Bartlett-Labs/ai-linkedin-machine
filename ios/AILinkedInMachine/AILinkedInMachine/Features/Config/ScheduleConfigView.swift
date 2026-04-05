@@ -53,10 +53,10 @@ struct ScheduleConfigView: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(label.uppercased())
                 .font(.system(size: 9, weight: .semibold))
-                .foregroundStyle(.textMuted)
+                .foregroundStyle(Color.textMuted)
             Text(value)
                 .font(.system(size: 14, weight: .medium, design: .monospaced))
-                .foregroundStyle(.textSecondary)
+                .foregroundStyle(Color.textSecondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -66,28 +66,28 @@ struct ScheduleConfigView: View {
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.md) {
                 Text("Weekly Plan")
                     .font(.headline)
-                    .foregroundStyle(.textPrimary)
+                    .foregroundStyle(Color.textPrimary)
 
                 ForEach(weeklyPlan) { day in
                     HStack {
                         Text(day.day)
                             .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(.textPrimary)
+                            .foregroundStyle(Color.textPrimary)
                             .frame(width: 40, alignment: .leading)
 
                         if day.isPostDay {
-                            StatusBadge(text: "POST", color: .success)
+                            StatusBadge(text: "POST", color: Color.success)
                         }
 
                         Text("\(day.actions.count) actions")
                             .font(.system(size: 11, design: .monospaced))
-                            .foregroundStyle(.textMuted)
+                            .foregroundStyle(Color.textMuted)
 
                         Spacer()
 
                         Text(day.date)
                             .font(.system(size: 10, design: .monospaced))
-                            .foregroundStyle(.textMuted)
+                            .foregroundStyle(Color.textMuted)
                     }
                 }
             }

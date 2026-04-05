@@ -65,7 +65,7 @@ struct ConfigRootView: View {
         } label: {
             Label {
                 Text(section.title)
-                    .foregroundStyle(.textPrimary)
+                    .foregroundStyle(Color.textPrimary)
             } icon: {
                 Image(systemName: section.icon)
                     .foregroundStyle(section.color)
@@ -82,7 +82,7 @@ struct ConfigRootView: View {
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
                 Text("API Server")
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.textPrimary)
+                    .foregroundStyle(Color.textPrimary)
                 TextField("http://localhost:8000", text: $serverURL)
                     .font(.system(size: 12, design: .monospaced))
                     .textFieldStyle(.roundedBorder)
@@ -92,7 +92,7 @@ struct ConfigRootView: View {
             VStack(alignment: .leading, spacing: DesignTokens.Spacing.sm) {
                 Text("API Key")
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.textPrimary)
+                    .foregroundStyle(Color.textPrimary)
                 SecureField("Optional", text: $serverKey)
                     .font(.system(size: 12, design: .monospaced))
                     .textFieldStyle(.roundedBorder)

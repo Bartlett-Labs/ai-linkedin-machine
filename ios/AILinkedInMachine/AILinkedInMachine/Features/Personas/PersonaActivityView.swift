@@ -14,17 +14,17 @@ struct PersonaActivityView: View {
                             HStack {
                                 Text(stat.persona)
                                     .font(.system(size: 15, weight: .medium))
-                                    .foregroundStyle(.textPrimary)
+                                    .foregroundStyle(Color.textPrimary)
                                 Spacer()
                                 Text("\(stat.totalActions) total")
                                     .font(.system(size: 12, weight: .medium, design: .monospaced))
-                                    .foregroundStyle(.accent)
+                                    .foregroundStyle(Color.accent)
                             }
 
                             HStack(spacing: DesignTokens.Spacing.lg) {
-                                activityStat("Comments", value: stat.comments, color: .accent)
-                                activityStat("Posts", value: stat.posts, color: .success)
-                                activityStat("Replies", value: stat.replies, color: .warning)
+                                activityStat("Comments", value: stat.comments, color: Color.accent)
+                                activityStat("Posts", value: stat.posts, color: Color.success)
+                                activityStat("Replies", value: stat.replies, color: Color.warning)
                             }
 
                             // Activity bar
@@ -68,7 +68,7 @@ struct PersonaActivityView: View {
                 .foregroundStyle(color)
             Text(label)
                 .font(.system(size: 10))
-                .foregroundStyle(.textMuted)
+                .foregroundStyle(Color.textMuted)
         }
         .frame(maxWidth: .infinity)
     }

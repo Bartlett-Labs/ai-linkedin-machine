@@ -50,7 +50,7 @@ struct QueueListView: View {
                                     .font(.system(size: 10, weight: .bold, design: .monospaced))
                             }
                         }
-                        .foregroundStyle(isActive ? .accent : .textMuted)
+                        .foregroundStyle(isActive ?Color.accent : Color.textMuted)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
                         .background(isActive ? Color.accent.opacity(0.1) : Color.surface2)
@@ -130,20 +130,20 @@ struct QueueItemRow: View {
 
                 Text(item.actionType)
                     .font(.system(size: 10, weight: .medium, design: .monospaced))
-                    .foregroundStyle(.textMuted)
+                    .foregroundStyle(Color.textMuted)
 
                 Spacer()
 
                 if let created = item.createdAt {
                     Text(created.toDate()?.relativeDisplay() ?? "")
                         .font(.system(size: 10, design: .monospaced))
-                        .foregroundStyle(.textMuted)
+                        .foregroundStyle(Color.textMuted)
                 }
             }
 
             Text(item.draftText)
                 .font(.system(size: 13))
-                .foregroundStyle(.textSecondary)
+                .foregroundStyle(Color.textSecondary)
                 .lineLimit(3)
 
             HStack(spacing: DesignTokens.Spacing.sm) {
@@ -155,7 +155,7 @@ struct QueueItemRow: View {
                 if !item.targetName.isEmpty {
                     Label(item.targetName, systemImage: "at")
                         .font(.system(size: 10))
-                        .foregroundStyle(.textMuted)
+                        .foregroundStyle(Color.textMuted)
                 }
             }
         }
@@ -183,17 +183,17 @@ struct QueueDetailView: View {
                 VStack(alignment: .leading, spacing: DesignTokens.Spacing.lg) {
                     HStack {
                         StatusBadge(text: item.status)
-                        StatusBadge(text: item.actionType, color: .textMuted)
+                        StatusBadge(text: item.actionType, color: Color.textMuted)
                         Spacer()
                     }
 
                     VStack(alignment: .leading, spacing: DesignTokens.Spacing.xs) {
                         Text("DRAFT")
                             .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(.textMuted)
+                            .foregroundStyle(Color.textMuted)
                         TextEditor(text: $editedText)
                             .font(.system(size: 14))
-                            .foregroundStyle(.textPrimary)
+                            .foregroundStyle(Color.textPrimary)
                             .scrollContentBackground(.hidden)
                             .frame(minHeight: 200)
                             .padding(DesignTokens.Spacing.sm)
@@ -201,7 +201,7 @@ struct QueueDetailView: View {
                             .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radius.control))
                             .overlay(
                                 RoundedRectangle(cornerRadius: DesignTokens.Radius.control)
-                                    .strokeBorder(.appBorder, lineWidth: 1)
+                                    .strokeBorder(Color.appBorder, lineWidth: 1)
                             )
                     }
 
@@ -231,7 +231,7 @@ struct QueueDetailView: View {
                                 dismiss()
                             }
                         }
-                        .foregroundStyle(.accent)
+                        .foregroundStyle(Color.accent)
                     }
                 }
             }
@@ -277,10 +277,10 @@ struct QueueDetailView: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(label.uppercased())
                 .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(.textMuted)
+                .foregroundStyle(Color.textMuted)
             Text(value)
                 .font(.system(size: 13, design: .monospaced))
-                .foregroundStyle(.textSecondary)
+                .foregroundStyle(Color.textSecondary)
         }
     }
 }

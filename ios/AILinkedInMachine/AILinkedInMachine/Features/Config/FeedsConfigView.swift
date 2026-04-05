@@ -43,21 +43,21 @@ struct FeedsConfigView: View {
                     .frame(width: 8, height: 8)
                 Text(feed.name)
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(.textPrimary)
+                    .foregroundStyle(Color.textPrimary)
                 Spacer()
-                StatusBadge(text: feed.type, color: .textMuted)
+                StatusBadge(text: feed.type, color: Color.textMuted)
                 if !feed.category.isEmpty {
-                    StatusBadge(text: feed.category, color: .accent)
+                    StatusBadge(text: feed.category, color: Color.accent)
                 }
             }
             Text(feed.url)
                 .font(.system(size: 11, design: .monospaced))
-                .foregroundStyle(.textMuted)
+                .foregroundStyle(Color.textMuted)
                 .lineLimit(1)
             if let lastFetched = feed.lastFetched {
                 Text("Last fetched: \(lastFetched.toDate()?.relativeDisplay() ?? lastFetched)")
                     .font(.system(size: 10, design: .monospaced))
-                    .foregroundStyle(.textMuted)
+                    .foregroundStyle(Color.textMuted)
             }
         }
         .padding(.vertical, 4)

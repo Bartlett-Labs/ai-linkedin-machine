@@ -32,13 +32,13 @@ struct StatCard: View {
                 // Value — large monospaced
                 Text(value)
                     .font(.system(size: 26, weight: .bold, design: .monospaced))
-                    .foregroundStyle(.textPrimary)
+                    .foregroundStyle(Color.textPrimary)
                     .contentTransition(.numericText())
 
                 // Title
                 Text(title.uppercased())
                     .font(.system(size: 9, weight: .semibold, design: .default))
-                    .foregroundStyle(.textMuted)
+                    .foregroundStyle(Color.textMuted)
                     .tracking(0.8)
 
                 if let subtitle {
@@ -75,9 +75,9 @@ struct StatCard: View {
 #Preview {
     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
         StatCard(title: "Comments", value: "12", icon: "bubble.left.fill", color: .accent, subtitle: "+3 today")
-        StatCard(title: "Posts", value: "3", icon: "doc.text.fill", color: .success)
-        StatCard(title: "Replies", value: "8", icon: "arrowshape.turn.up.left.fill", color: .warning)
-        StatCard(title: "Likes", value: "24", icon: "heart.fill", color: .danger)
+        StatCard(title: "Posts", value: "3", icon: "doc.text.fill", color: Color.success)
+        StatCard(title: "Replies", value: "8", icon: "arrowshape.turn.up.left.fill", color: Color.warning)
+        StatCard(title: "Likes", value: "24", icon: "heart.fill", color: Color.danger)
     }
     .padding()
     .background(Color.appBackground)
