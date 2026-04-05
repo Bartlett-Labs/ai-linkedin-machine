@@ -24,7 +24,7 @@ struct TargetsConfigView: View {
                             .foregroundStyle(Color.accent)
                     }
                     HStack {
-                        StatusBadge(text: target.category, color: catColors[target.category] ??Color.textMuted)
+                        StatusBadge(text: target.category, color: catColors[target.category] ?? Color.textMuted)
                         Spacer()
                         Text(target.lastCommentDate ?? "Never")
                             .font(.system(size: 10, design: .monospaced))
