@@ -1,0 +1,19 @@
+# The Regulatory Layer Most AI Automation Strategies Are Missing
+
+When I build AI tools into demand planning workflows, I'm thinking about accuracy, speed, data quality, and integration. What I haven't spent enough time thinking about is regulatory risk as an operational variable.
+
+Recent reporting highlights something worth paying attention to: AI companies are collectively investing hundreds of millions of dollars into shaping the legislative environment around their own technology. One major AI lab just formed a political action committee. Industry contributions to political races have reached $185 million and counting.
+
+This isn't a political commentary. It's a planning consideration.
+
+Here's what I've started thinking about differently:
+
+**The tools we build on can change underneath us.** Not just through model updates or API changes, but through regulation. Rules governing how models handle sensitive data, what use cases are permissible, and how organizations must document AI-driven decisions — all of this is in motion.
+
+**Implementation timelines rarely account for this.** Most of us scope an AI automation project in terms of development effort, testing, and rollout. Almost nobody builds in a buffer for "the regulatory environment shifted mid-deployment."
+
+**Regulatory awareness isn't a legal team problem.** If you're the practitioner building these workflows, you need at least a working understanding of what's being debated. Waiting for legal to flag something after you've already deployed is a fragile strategy.
+
+I've started treating regulatory monitoring the same way I treat demand signal monitoring — as an input that affects the reliability of my outputs.
+
+How are other practitioners factoring this into their automation roadmaps?

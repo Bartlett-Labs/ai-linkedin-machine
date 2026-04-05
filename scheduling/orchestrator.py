@@ -28,8 +28,11 @@ from browser.linkedin_actions import (
 )
 from config import load_personas
 from engagement.commenter import run_commenter
+from engagement.connector import run_connector
+from engagement.dm_responder import run_dm_responder
 from engagement.replier import run_replier
 from engagement.tracker import log_post, log_like
+from engagement.voice_outreach import monitor_and_send_voice
 from sheets.models import QueueStatus, EngineMode, Phase, ScheduleConfig
 from summarization.safety_filter import violates_safety, load_sheet_terms
 from utils import project_path
@@ -65,6 +68,9 @@ async def run_orchestrator(
         "comments": 0,
         "replies": 0,
         "phantom_actions": 0,
+        "connections_sent": 0,
+        "dm_replies": 0,
+        "voice_messages": 0,
         "errors": [],
         "mode": "unknown",
         "phase": "unknown",
@@ -227,7 +233,73 @@ async def run_orchestrator(
                 logger.error("Replier failed: %s", e)
                 summary["errors"].append(f"Replier: {e}")
 
-    # 7. Update last run time
+    if check_kill_switch():
+        return summary
+
+    # 7. Auto-connection engine (after replying, before phantoms — uses remaining daily budget)
+    if not dry_run:
+        try:
+            connector_result = await run_connector(
+                headless=headless,
+                dry_run=dry_run,
+            )
+            summary["connections_sent"] = (
+                connector_result.get("commenter_connects", 0)
+                + connector_result.get("outbound_connects", 0)
+            )
+        except LinkedInChallengeDetected as e:
+            logger.error("Challenge during connector: %s", e)
+            activate_kill_switch(f"LinkedIn challenge: {e}")
+            summary["errors"].append(f"Connector challenge: {e}")
+        except Exception as e:
+            logger.error("Connector failed: %s", e)
+            summary["errors"].append(f"Connector: {e}")
+    else:
+        logger.info("[DRY RUN] Skipping connector (requires browser)")
+
+    if check_kill_switch():
+        return summary
+
+    # 8. DM auto-responder
+    if not dry_run:
+        try:
+            dm_result = await run_dm_responder(
+                headless=headless,
+                dry_run=dry_run,
+            )
+            summary["dm_replies"] = dm_result.get("replies_sent", 0) + dm_result.get("replies_queued", 0)
+        except LinkedInChallengeDetected as e:
+            logger.error("Challenge during DM responder: %s", e)
+            activate_kill_switch(f"LinkedIn challenge: {e}")
+            summary["errors"].append(f"DM responder challenge: {e}")
+        except Exception as e:
+            logger.error("DM responder failed: %s", e)
+            summary["errors"].append(f"DM responder: {e}")
+    else:
+        logger.info("[DRY RUN] Skipping DM responder (requires browser)")
+
+    if check_kill_switch():
+        return summary
+
+    # 9. Voice follow-up for accepted connections
+    if not dry_run:
+        try:
+            voice_result = await monitor_and_send_voice(
+                headless=headless,
+                dry_run=dry_run,
+            )
+            summary["voice_messages"] = voice_result.get("voice_messages_sent", 0)
+        except LinkedInChallengeDetected as e:
+            logger.error("Challenge during voice outreach: %s", e)
+            activate_kill_switch(f"LinkedIn challenge: {e}")
+            summary["errors"].append(f"Voice challenge: {e}")
+        except Exception as e:
+            logger.error("Voice outreach failed: %s", e)
+            summary["errors"].append(f"Voice outreach: {e}")
+    else:
+        logger.info("[DRY RUN] Skipping voice outreach (requires browser)")
+
+    # 10. Update last run time
     try:
         sheets_client.update_last_run()
     except Exception:
@@ -237,7 +309,9 @@ async def run_orchestrator(
         "ORCHESTRATOR_COMPLETE",
         details=(
             f"Posts={summary['posts']}, Comments={summary['comments']}, "
-            f"Replies={summary['replies']}, Phantom={summary['phantom_actions']}"
+            f"Replies={summary['replies']}, Phantom={summary['phantom_actions']}, "
+            f"Connections={summary['connections_sent']}, DMs={summary['dm_replies']}, "
+            f"Voice={summary['voice_messages']}"
         ),
         status="OK" if not summary["errors"] else "PARTIAL",
     )

@@ -1,0 +1,18 @@
+Most conversations about AI scaling focus on model architecture and training data. Almost nobody talks about the physical infrastructure bottleneck that's quietly building.
+
+Recent polling shows significant public opposition to new data center construction, with surveys ranging from 32% to 65% of Americans opposing builds in their communities. The primary concern isn't abstract — it's electricity prices. And the usual counterargument about local job creation doesn't hold up well when data centers employ relatively few people once they're operational.
+
+This matters for anyone building AI-driven workflows, including in demand planning.
+
+A lot of the automation I build assumes that cloud compute will remain accessible and reasonably priced. That's not a guaranteed future. If regulatory friction and community resistance slow data center expansion, we're looking at potential capacity constraints and cost increases that ripple through every organization running AI workloads.
+
+It's already shaping how I think about design decisions:
+
+- Choosing smaller, more efficient models when they get the job done
+- Running preprocessing and feature engineering steps locally where possible
+- Being deliberate about what actually needs cloud-scale compute versus what's just defaulting there out of convenience
+- Treating compute efficiency as a design constraint, not an afterthought
+
+The era of assuming infinitely scalable, cheap infrastructure might be shorter than we think. Building leaner pipelines isn't just good engineering practice — it might become a competitive necessity.
+
+I wonder how many teams are stress-testing their AI roadmaps against a scenario where compute gets meaningfully more expensive, not less.

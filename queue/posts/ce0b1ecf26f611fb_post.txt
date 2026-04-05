@@ -1,0 +1,13 @@
+# Your AI Vendor's C-Suite Just Reshuffled. Does Your Automation Pipeline Care?
+
+OpenAI is cycling through multiple C-suite roles simultaneously — COO shifting to special projects, CMO stepping down, head of AGI development on medical leave — all while bringing in a former Slack CEO to lead commercial operations.
+
+For most people, this is just tech industry news. For anyone who's built production workflows on top of OpenAI's APIs, it's a useful reminder.
+
+I've spent the last couple of years building demand planning automations that rely on large language models for tasks like forecast exception analysis, data cleaning, and unstructured text parsing. These tools genuinely work. But every time I wire a critical process to a single provider's API, I think about what happens when their pricing changes, their model behavior shifts after an update, or their strategic priorities pivot toward a different customer segment.
+
+Leadership transitions at AI companies aren't just HR stories. They signal where investment and attention will flow next. A former Slack CEO running commercial operations suggests a harder push into enterprise revenue — which could mean better enterprise tooling, or it could mean deprecating features that smaller-scale users depend on.
+
+What I've learned the hard way: build abstraction layers. Keep your core logic provider-agnostic. Make it so swapping out the underlying model is a configuration change, not a rewrite. The demand planning workflow should own the intelligence; the LLM is a component, not the architecture.
+
+The companies moving fastest with AI right now might also be the most exposed if they haven't planned for the vendor landscape to keep shifting underneath them.

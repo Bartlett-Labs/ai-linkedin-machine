@@ -16,7 +16,7 @@ load_dotenv(_PROJECT_ROOT / ".env")
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.routes import engine, schedule, content, targets, templates, rules, personas, analytics, history, alerts, queue, pipeline, feeds
+from api.routes import engine, schedule, content, targets, templates, rules, personas, analytics, history, alerts, queue, pipeline, feeds, heartbeat, killswitch, leads, connector, dm_responder
 
 
 @asynccontextmanager
@@ -55,6 +55,11 @@ app.include_router(alerts.router, prefix="/api")
 app.include_router(queue.router, prefix="/api")
 app.include_router(pipeline.router, prefix="/api")
 app.include_router(feeds.router, prefix="/api")
+app.include_router(heartbeat.router, prefix="/api")
+app.include_router(killswitch.router, prefix="/api")
+app.include_router(leads.router, prefix="/api")
+app.include_router(connector.router, prefix="/api")
+app.include_router(dm_responder.router, prefix="/api")
 
 
 @app.get("/api/health")

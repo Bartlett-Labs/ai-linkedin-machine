@@ -1,0 +1,21 @@
+The principles reshaping software engineering are the same ones transforming demand planning.
+
+In software, teams have spent years learning to:
+
+→ Automate repetitive workflows so engineers focus on architecture, not busywork
+→ Shift quality checks earlier in the process instead of catching errors at the end
+→ Use AI to augment decisions, not replace the people making them
+
+I've been building automation tools for my own demand planning work, and the parallels are striking.
+
+**Automating repetitive workflows.** A huge chunk of a planner's week goes to data pulls, formatting, and reconciliation. That's the equivalent of manual deployments in software. Once you script it, you don't go back.
+
+**Shifting quality checks upstream.** In planning, most forecast errors get caught too late — after the PO is placed, after the container ships. Building validation logic into the data pipeline catches anomalies when there's still time to act.
+
+**AI as augmentation.** The most useful AI tools I've built don't generate forecasts autonomously. They surface patterns I'd miss in a spreadsheet and flag where my assumptions might be off. The judgment still sits with the planner.
+
+What's interesting is that supply chain didn't borrow these ideas from software intentionally. The problems just converge when any complex operation reaches a certain scale: too much manual work, too many handoffs, too little feedback before consequences are locked in.
+
+The tooling differs. The underlying discipline doesn't.
+
+I'm curious whether other operations teams are finding the same convergence in their own workflows.

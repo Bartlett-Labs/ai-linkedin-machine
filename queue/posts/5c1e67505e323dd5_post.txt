@@ -1,0 +1,21 @@
+The same AI principles reshaping supply chains are now being applied to drug discovery pipelines.
+
+A major AI company just acquired a biotech startup — roughly 10 people, about 8 months old — for approximately $400 million in stock. The founders came from computational drug discovery backgrounds, and the acquirer had already launched life sciences-specific AI tools.
+
+What caught my attention wasn't the price tag. It was the underlying logic.
+
+Drug discovery is, at its core, an operational problem. You're sourcing compounds, sequencing experiments, managing enormous datasets, and trying to compress cycle times from years into months. The waste in those iterative processes is staggering.
+
+That sounds a lot like demand planning.
+
+In my day-to-day work, I build tools that use pattern recognition across complex variables to improve forecasting accuracy and reduce inventory waste. Scenario modeling, iterative refinement, cutting through noise in large datasets — these aren't unique to consumer goods. They're transferable principles.
+
+What's happening in biotech right now mirrors what's been happening in supply chain operations for the past few years:
+
+- Specialized AI talent is being consolidated fast
+- R&D workflows that relied on manual iteration are being automated
+- The organizations that move early are compressing timelines their competitors haven't even started rethinking
+
+The speed here is what stands out. Eight months from founding to a $400M acquisition means the window for building specialized AI capability is shrinking across every industry, not just tech.
+
+I wonder which traditionally slow-moving domain gets disrupted next — and whether the people working in it see it coming.

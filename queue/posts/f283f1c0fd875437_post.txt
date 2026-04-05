@@ -1,0 +1,24 @@
+Something that doesn't get enough attention in AI adoption: model deprecation is an operational risk.
+
+GitHub just deprecated several AI models across its Copilot platform, requiring teams to audit configurations and migrate to supported alternatives. For organizations that had deeply integrated these models into daily workflows, that's not a minor update. It's a change management event.
+
+This resonates with what I've experienced building automation tools for demand planning. When you wire an AI model into a forecasting pipeline or a document workflow, it becomes infrastructure. And infrastructure requires governance.
+
+The pattern I keep seeing:
+
+**Phase 1:** Team discovers an AI tool that solves a real problem.
+**Phase 2:** Tool gets embedded into daily processes. People depend on it.
+**Phase 3:** The underlying model changes, gets deprecated, or shifts in behavior. Things break quietly.
+
+Most teams plan carefully for Phase 1 and 2. Almost nobody plans for Phase 3.
+
+What's helped me stay ahead of this:
+
+- Tracking which models and versions sit behind each workflow
+- Testing replacements in parallel before any forced cutover
+- Documenting dependencies so the impact radius is clear when something changes
+- Treating AI tooling with the same change management discipline as any other critical system
+
+AI adoption isn't a project with a finish line. It's an ongoing operational commitment. The teams that treat it like deploying software — with version control, testing cycles, and rollback plans — are the ones who won't get caught off guard.
+
+I'm curious how others are handling this. Does anyone have a formal process for tracking AI model dependencies across their workflows, or is it still mostly ad hoc?

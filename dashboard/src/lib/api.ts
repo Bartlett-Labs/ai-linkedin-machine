@@ -211,5 +211,131 @@ export const updateFeed = (id: number, data: Partial<FeedSource>) =>
 export const deleteFeed = (id: number) =>
   request(`/feeds/${id}`, { method: "DELETE" });
 
+// Persona Detail (single persona with full info)
+export interface PersonaDetail {
+  name: string; display_name: string; persona: string; system_prompt: string;
+  session_dir: string; location: string | null; linkedin_url: string | null;
+  active_hours: Record<string, string> | null; voice: Record<string, unknown> | null;
+  engagement_rules: Record<string, unknown> | null; behavior: Record<string, unknown> | null;
+}
+export const getPersonaDetail = (name: string) =>
+  request<PersonaDetail>(`/personas/${encodeURIComponent(name)}`);
+
+// Heartbeat (per-persona autonomous scheduler)
+export interface PersonaHeartbeatStatus {
+  name: string; display_name: string; has_active_session: boolean;
+  in_active_hours: boolean; active_hours: Record<string, string> | null;
+  schedule: Record<string, number> | null; daily_stats: Record<string, number> | null;
+  is_running: boolean;
+}
+export interface ScheduleUpdate {
+  comments_per_cycle?: number; post_chance_per_cycle?: number;
+  kyle_comment_chance?: number; cycle_interval_minutes?: number;
+}
+export const getHeartbeatStatus = () => request<PersonaHeartbeatStatus[]>("/heartbeat/status");
+export const getPersonaSchedule = (name: string) =>
+  request<{ name: string; display_name: string; schedule: Record<string, number>; active_hours: Record<string, string>; behavior: Record<string, unknown> }>(`/heartbeat/schedule/${encodeURIComponent(name)}`);
+export const updatePersonaSchedule = (name: string, data: ScheduleUpdate) =>
+  request(`/heartbeat/schedule/${encodeURIComponent(name)}`, { method: "PUT", body: JSON.stringify(data) });
+export const triggerHeartbeat = (name: string, data: { dry_run?: boolean; headless?: boolean } = {}) =>
+  request<{ status: string; persona: string; display_name: string; dry_run: boolean }>(
+    `/heartbeat/run/${encodeURIComponent(name)}`, { method: "POST", body: JSON.stringify(data) });
+export const triggerAllHeartbeats = (data: { dry_run?: boolean; headless?: boolean } = {}) =>
+  request<{ status: string; triggered: { name: string; display_name: string }[]; skipped: { name: string; display_name: string; reason: string }[]; dry_run: boolean }>(
+    "/heartbeat/run-all", { method: "POST", body: JSON.stringify(data) });
+
+// Kill Switch
+export interface KillSwitchStatus { active: boolean; message: string; }
+export const getKillSwitch = () => request<KillSwitchStatus>("/kill-switch");
+export const activateKillSwitch = () => request<KillSwitchStatus>("/kill-switch/activate", { method: "POST" });
+export const deactivateKillSwitch = () => request<KillSwitchStatus>("/kill-switch/deactivate", { method: "POST" });
+
+// Leads
+export interface Lead {
+  name: string; title: string; company: string; score: number;
+  reasons: string[]; source_url: string; interaction_type: string;
+  comment_preview: string; discovered_at: string; status: string;
+  interaction_count: number; last_seen: string | null; notes?: string;
+}
+export interface LeadsResponse { leads: Lead[]; total: number; }
+export const getLeads = (status?: string) =>
+  request<LeadsResponse>(`/leads${status ? `?status=${status}` : ""}`);
+export const updateLead = (name: string, data: { status?: string; notes?: string }) =>
+  request(`/leads/${encodeURIComponent(name)}`, { method: "PUT", body: JSON.stringify(data) });
+export const deleteLead = (name: string) =>
+  request(`/leads/${encodeURIComponent(name)}`, { method: "DELETE" });
+
+// Pipeline Run Detail
+export const getPipelineRun = (id: number) => request<PipelineRun>(`/pipeline/runs/${id}`);
+
+// Connector (auto-connection engine)
+export interface ConnectorStatus {
+  sent_today: number; daily_limit: number; remaining: number;
+  commenter_today: number; outbound_today: number;
+  accepted_today: number; total_accepted: number; total_all_time: number;
+  config: { commenter_priority: boolean; search_keywords: string[]; location: string; };
+}
+export interface ConnectionRequest {
+  name: string; profile_url: string; headline: string; note: string;
+  source: string; search_keyword?: string; post_context?: string;
+  relevance_score?: number; timestamp: string; dry_run: boolean;
+}
+export interface ConnectionRequestsResponse {
+  requests: ConnectionRequest[]; total: number; limit: number; offset: number;
+}
+export interface VoiceRecord {
+  name: string; profile_url: string; script: string;
+  audio_file: string | null; timestamp: string; dry_run: boolean;
+}
+export interface VoiceQueueResponse {
+  pending: { name: string; profile_url: string; headline: string; source: string; sent_at: string; }[];
+  sent: VoiceRecord[]; total_sent: number;
+}
+export const getConnectorStatus = () => request<ConnectorStatus>("/connector/status");
+export const getConnectionRequests = (params: { source?: string; limit?: number; offset?: number } = {}) => {
+  const qs = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => { if (v !== undefined) qs.set(k, String(v)); });
+  return request<ConnectionRequestsResponse>(`/connector/requests?${qs}`);
+};
+export const triggerConnector = (data: { dry_run?: boolean; commenter_only?: boolean; outbound_only?: boolean } = {}) =>
+  request<{ status: string; dry_run: boolean }>("/connector/run", { method: "POST", body: JSON.stringify(data) });
+export const getConnectorAcceptances = () =>
+  request<{ pending_voice: number; voice_sent: number; recent_voice: VoiceRecord[] }>("/connector/acceptances");
+export const getVoiceQueue = () => request<VoiceQueueResponse>("/connector/voice-queue");
+export const triggerVoiceOutreach = (data: { dry_run?: boolean; max_messages?: number } = {}) =>
+  request<{ status: string; dry_run: boolean }>("/connector/voice-run", { method: "POST", body: JSON.stringify(data) });
+export const getConnectorConfig = () => request<Record<string, unknown>>("/connector/config");
+export const updateConnectorConfig = (updates: Record<string, unknown>) =>
+  request("/connector/config", { method: "PUT", body: JSON.stringify(updates) });
+
+// DM Auto-Responder
+export interface DmResponderStatus {
+  replied_today: number; daily_limit: number; queue_depth: number;
+  queue: DmQueueEntry[]; total_replied: number;
+  recent_replies: DmSentReply[]; intent_breakdown: Record<string, number>;
+}
+export interface DmQueueEntry {
+  sender: string; profile_url: string; thread_index: number; intent: string;
+  reply_text: string; last_incoming_text: string;
+  queued_at: string; send_at: string; sent: boolean;
+}
+export interface DmSentReply {
+  sender: string; intent: string; reply_text: string; sent_at: string;
+}
+export interface DmRepliesResponse {
+  replies: DmSentReply[]; total: number; limit: number; offset: number;
+}
+export const getDmResponderStatus = () => request<DmResponderStatus>("/dm-responder/status");
+export const getDmReplies = (params: { limit?: number; offset?: number } = {}) => {
+  const qs = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => { if (v !== undefined) qs.set(k, String(v)); });
+  return request<DmRepliesResponse>(`/dm-responder/replies?${qs}`);
+};
+export const getDmQueue = () => request<{ queue: DmQueueEntry[]; count: number }>("/dm-responder/queue");
+export const triggerDmResponder = (data: { dry_run?: boolean; max_replies?: number } = {}) =>
+  request<{ status: string; dry_run: boolean }>("/dm-responder/run", { method: "POST", body: JSON.stringify(data) });
+export const cancelDmQueueItem = (index: number) =>
+  request<{ status: string }>(`/dm-responder/queue/${index}`, { method: "DELETE" });
+
 // Health
 export const healthCheck = () => request<{ status: string }>("/health");

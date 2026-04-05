@@ -21,13 +21,13 @@ import {
 } from "lucide-react";
 
 const CATEGORY_COLORS: Record<string, string> = {
-  ai:           "text-blue-400    border-blue-400/30    bg-blue-400/10",
-  automation:   "text-purple-400  border-purple-400/30  bg-purple-400/10",
-  ops:          "text-emerald-400 border-emerald-400/30 bg-emerald-400/10",
-  tech:         "text-cyan-400    border-cyan-400/30    bg-cyan-400/10",
-  business:     "text-amber-400   border-amber-400/30   bg-amber-400/10",
-  career:       "text-pink-400    border-pink-400/30    bg-pink-400/10",
-  "":           "text-zinc-400    border-zinc-400/30    bg-zinc-400/10",
+  ai:           "text-[#06b6d4]   border-[#06b6d4]/30   bg-[#06b6d4]/10",
+  automation:   "text-[#a7b0b8]   border-[#a7b0b8]/30   bg-[#a7b0b8]/10",
+  ops:          "text-[#22c55e]   border-[#22c55e]/30   bg-[#22c55e]/10",
+  tech:         "text-[#2dd4bf]   border-[#2dd4bf]/30   bg-[#2dd4bf]/10",
+  business:     "text-[#f59e0b]   border-[#f59e0b]/30   bg-[#f59e0b]/10",
+  career:       "text-[#fb923c]   border-[#fb923c]/30   bg-[#fb923c]/10",
+  "":           "text-[#73808c]   border-[#73808c]/30   bg-[#73808c]/10",
 };
 
 function formatDate(iso: string | null) {
@@ -38,9 +38,7 @@ function formatDate(iso: string | null) {
 }
 
 function FeedForm({
-  initial,
-  onSubmit,
-  submitLabel,
+  initial, onSubmit, submitLabel,
 }: {
   initial?: Partial<FeedSource>;
   onSubmit: (data: { name: string; url: string; type: string; category: string; active: boolean }) => void;
@@ -55,16 +53,16 @@ function FeedForm({
   return (
     <div className="space-y-4 pt-2">
       <div className="space-y-1.5">
-        <Label className="text-xs text-muted-foreground">Feed Name</Label>
+        <Label className="text-xs text-[#73808c] uppercase tracking-wider">Feed Name</Label>
         <Input value={name} onChange={e => setName(e.target.value)} placeholder="MIT Technology Review — AI" />
       </div>
       <div className="space-y-1.5">
-        <Label className="text-xs text-muted-foreground">URL</Label>
-        <Input value={url} onChange={e => setUrl(e.target.value)} placeholder="https://example.com/feed.xml" className="font-mono text-sm" />
+        <Label className="text-xs text-[#73808c] uppercase tracking-wider">URL</Label>
+        <Input value={url} onChange={e => setUrl(e.target.value)} placeholder="https://example.com/feed.xml" className="font-mono-data text-sm" />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Type</Label>
+          <Label className="text-xs text-[#73808c] uppercase tracking-wider">Type</Label>
           <Select value={type} onValueChange={setType}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -76,7 +74,7 @@ function FeedForm({
           </Select>
         </div>
         <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Category</Label>
+          <Label className="text-xs text-[#73808c] uppercase tracking-wider">Category</Label>
           <Select value={category} onValueChange={setCategory}>
             <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
             <SelectContent>
@@ -93,11 +91,11 @@ function FeedForm({
       <div className="flex items-center justify-between">
         <div>
           <Label className="text-sm">Active</Label>
-          <p className="text-xs text-muted-foreground">Include this feed in ingestion runs</p>
+          <p className="text-xs text-[#73808c]">Include this feed in ingestion runs</p>
         </div>
         <Switch checked={active} onCheckedChange={setActive} />
       </div>
-      <Button onClick={() => onSubmit({ name, url, type, category, active })} className="w-full" disabled={!name.trim() || !url.trim()}>
+      <Button onClick={() => onSubmit({ name, url, type, category, active })} className="w-full bg-[#06b6d4] text-[#090a0b] hover:bg-[#22d3ee]" disabled={!name.trim() || !url.trim()}>
         {submitLabel}
       </Button>
     </div>
@@ -151,20 +149,22 @@ export default function FeedsPage() {
   const inactiveCount = feeds.filter(f => !f.active).length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-6xl">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Feed Sources</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage RSS feeds for content ingestion pipeline</p>
+          <h2 className="text-2xl font-semibold flex items-center gap-2.5">
+            <Rss className="h-5 w-5 text-[#06b6d4]" />Feed Sources
+          </h2>
+          <p className="text-sm text-[#73808c] mt-1">Manage RSS feeds for content ingestion pipeline</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={fetchFeeds} disabled={loading}>
-            <RefreshCw className={`h-4 w-4 mr-1.5 ${loading ? "animate-spin" : ""}`} />Refresh
+          <Button variant="outline" size="sm" onClick={fetchFeeds} disabled={loading} className="gap-1.5">
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />Refresh
           </Button>
           <Dialog open={createOpen} onOpenChange={setCreateOpen}>
             <DialogTrigger asChild>
-              <Button size="sm"><Plus className="h-4 w-4 mr-1.5" />Add Feed</Button>
+              <Button size="sm" className="bg-[#06b6d4] text-[#090a0b] hover:bg-[#22d3ee] gap-1.5"><Plus className="h-3.5 w-3.5" />Add Feed</Button>
             </DialogTrigger>
             <DialogContent className="max-w-md">
               <DialogHeader><DialogTitle>Add Feed Source</DialogTitle></DialogHeader>
@@ -176,38 +176,38 @@ export default function FeedsPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="rounded-lg border p-3">
+        <div className="rounded-[10px] border border-[#2a3138] p-3">
           <div className="flex items-center justify-between">
-            <Rss className="h-4 w-4 text-muted-foreground" />
-            <span className="text-2xl font-bold tabular-nums">{feeds.length}</span>
+            <Rss className="h-4 w-4 text-[#73808c]" />
+            <span className="text-2xl font-semibold font-mono-data">{feeds.length}</span>
           </div>
-          <p className="text-xs text-muted-foreground mt-1">Total Feeds</p>
+          <p className="text-xs text-[#73808c] mt-1">Total Feeds</p>
         </div>
-        <div className="rounded-lg border p-3">
+        <div className="rounded-[10px] border border-[#2a3138] p-3">
           <div className="flex items-center justify-between">
-            <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-            <span className="text-2xl font-bold tabular-nums text-emerald-400">{activeCount}</span>
+            <CheckCircle2 className="h-4 w-4 text-[#22c55e]" />
+            <span className="text-2xl font-semibold font-mono-data text-[#22c55e]">{activeCount}</span>
           </div>
-          <p className="text-xs text-muted-foreground mt-1">Active</p>
+          <p className="text-xs text-[#73808c] mt-1">Active</p>
         </div>
-        <div className="rounded-lg border p-3">
+        <div className="rounded-[10px] border border-[#2a3138] p-3">
           <div className="flex items-center justify-between">
-            <XCircle className="h-4 w-4 text-zinc-500" />
-            <span className="text-2xl font-bold tabular-nums text-zinc-500">{inactiveCount}</span>
+            <XCircle className="h-4 w-4 text-[#73808c]" />
+            <span className="text-2xl font-semibold font-mono-data text-[#73808c]">{inactiveCount}</span>
           </div>
-          <p className="text-xs text-muted-foreground mt-1">Inactive</p>
+          <p className="text-xs text-[#73808c] mt-1">Inactive</p>
         </div>
       </div>
 
       {/* Feed Cards */}
       {loading && feeds.length === 0 ? (
-        <Card><CardContent className="py-12 text-center text-muted-foreground">Loading feeds...</CardContent></Card>
+        <Card><CardContent className="py-12 text-center text-[#73808c]">Loading feeds...</CardContent></Card>
       ) : feeds.length === 0 ? (
         <Card>
           <CardContent className="py-16 text-center">
-            <Rss className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
-            <p className="text-muted-foreground">No feed sources configured</p>
-            <p className="text-xs text-muted-foreground/60 mt-1">Add RSS feeds to power the content ingestion pipeline</p>
+            <Rss className="h-8 w-8 text-[#2a3138] mx-auto mb-3" />
+            <p className="text-sm text-[#a7b0b8]">No feed sources configured</p>
+            <p className="text-xs text-[#73808c] mt-1">Add RSS feeds to power the content ingestion pipeline</p>
           </CardContent>
         </Card>
       ) : (
@@ -215,16 +215,16 @@ export default function FeedsPage() {
           {feeds.map(feed => {
             const catColors = CATEGORY_COLORS[feed.category] || CATEGORY_COLORS[""];
             return (
-              <Card key={feed.id} className={`group transition-all ${feed.active ? "hover:border-foreground/15" : "opacity-60"}`}>
+              <Card key={feed.id} className={`group transition-all ${feed.active ? "hover:border-[#f3f5f7]/15" : "opacity-60"}`}>
                 <CardContent className="py-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <Globe className={`h-4 w-4 flex-shrink-0 ${feed.active ? "text-foreground" : "text-muted-foreground"}`} />
+                        <Globe className={`h-4 w-4 flex-shrink-0 ${feed.active ? "text-[#f3f5f7]" : "text-[#73808c]"}`} />
                         <h3 className="text-sm font-medium truncate">{feed.name}</h3>
                       </div>
                       <a href={feed.url} target="_blank" rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mt-1.5 transition-colors font-mono truncate max-w-full">
+                        className="inline-flex items-center gap-1 text-xs text-[#73808c] hover:text-[#06b6d4] mt-1.5 transition-colors font-mono-data truncate max-w-full">
                         <ExternalLink className="h-3 w-3 flex-shrink-0" />
                         <span className="truncate">{feed.url}</span>
                       </a>
@@ -233,16 +233,16 @@ export default function FeedsPage() {
                   </div>
 
                   <div className="flex items-center gap-2 mt-3">
-                    <Badge variant="outline" className="text-[10px] font-mono">{feed.type}</Badge>
+                    <Badge variant="outline" className="text-[10px] font-mono-data">{feed.type}</Badge>
                     {feed.category && (
                       <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-medium rounded-full border ${catColors}`}>
                         {feed.category}
                       </span>
                     )}
                     <div className="flex-1" />
-                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground/60">
+                    <div className="flex items-center gap-1 text-[10px] text-[#73808c]/60">
                       <Clock className="h-3 w-3" />
-                      <span>{formatDate(feed.last_fetched)}</span>
+                      <span className="font-mono-data">{formatDate(feed.last_fetched)}</span>
                     </div>
                   </div>
 
@@ -252,7 +252,7 @@ export default function FeedsPage() {
                     </Button>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-7 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10">
+                        <Button variant="ghost" size="sm" className="h-7 text-xs text-[#ef4444] hover:text-[#ef4444]/80 hover:bg-[#ef4444]/10">
                           <Trash2 className="h-3 w-3 mr-1" />Remove
                         </Button>
                       </AlertDialogTrigger>
@@ -265,10 +265,7 @@ export default function FeedsPage() {
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            className="bg-red-600 hover:bg-red-700 text-white"
-                            onClick={() => handleDelete(feed.id)}
-                          >
+                          <AlertDialogAction className="bg-[#ef4444] hover:bg-[#ef4444]/80 text-white" onClick={() => handleDelete(feed.id)}>
                             Delete
                           </AlertDialogAction>
                         </AlertDialogFooter>

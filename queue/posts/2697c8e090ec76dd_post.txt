@@ -1,0 +1,17 @@
+# Governing AI Agents at Scale Is an Operations Problem
+
+When you're running one AI automation, configuration is simple. You set it up, test it, and move on.
+
+When you're running dozens across different processes, that approach breaks down fast.
+
+GitHub recently introduced organization-level configuration for Copilot's coding agents. Previously, admins had to configure runner environments repository by repository. Now they can set defaults and enforce standards from a single control plane while still allowing teams to customize where needed.
+
+This is a pattern I recognize from demand planning and supply chain work.
+
+Early on, I built automations one at a time. Each had its own setup, its own environment, its own quirks. It worked fine at small scale. But as the number of automated processes grew, so did the configuration drift. Something would break in one workflow because an environment changed, and I'd spend hours tracing the issue back to an inconsistency I didn't even know existed.
+
+The shift from per-process configuration to centralized governance with local flexibility isn't just a software engineering concept. It's an operational maturity milestone. It shows up every time an organization moves from AI pilots to production-scale deployment.
+
+The tooling to manage AI agents — where they run, what guardrails they follow, how they're monitored — matters as much as the agents themselves. Maybe more. A powerful agent with no governance structure around it is just a faster way to create problems.
+
+Most conversations about AI focus on capabilities. Fewer focus on the infrastructure needed to keep those capabilities under control as they multiply.

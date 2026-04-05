@@ -328,3 +328,363 @@ Their comment:
         result = result[1:-1]
 
     return result
+
+
+def generate_connection_note(
+    profile_info: dict,
+    persona_system_prompt: str,
+    context: str = "",
+) -> Optional[str]:
+    """Generate a personalized LinkedIn connection request note.
+
+    LinkedIn limits connection notes to 300 characters. The note must feel
+    genuinely personal -- reference specifics from the person's profile to
+    show this isn't a mass blast.
+
+    Args:
+        profile_info: Dict with name, headline, about, experience, location, mutual_connections.
+        persona_system_prompt: Kyle's persona system prompt.
+        context: Extra context (e.g. "commented on your post about X").
+
+    Returns:
+        A connection note string (<=300 chars), or None on failure.
+    """
+    name = profile_info.get("name", "")
+    headline = profile_info.get("headline", "")
+    about = (profile_info.get("about") or "")[:300]
+    experience = profile_info.get("experience", [])
+    location = profile_info.get("location", "")
+    mutuals = profile_info.get("mutual_connections", 0)
+
+    exp_text = ""
+    if experience:
+        exp_text = "\n".join(
+            f"- {e.get('title', '')} at {e.get('company', '')}" for e in experience[:3]
+        )
+
+    prompt = f"""Write a LinkedIn connection request note for this person. STRICT 300 CHARACTER LIMIT.
+
+Their profile:
+- Name: {name}
+- Headline: {headline}
+- Location: {location}
+- About: {about}
+- Experience:
+{exp_text}
+- Mutual connections: {mutuals}
+{f'- Context: {context}' if context else ''}
+
+Rules:
+- MUST be under 300 characters (this is a hard LinkedIn limit)
+- Reference something SPECIFIC from their profile (role, company, shared interest)
+- Sound like a real person, not a template
+- Don't use "I came across your profile" or "I'd love to connect"
+- Don't self-promote or pitch services
+- Be concise and direct
+- No emojis
+- Don't start with "Hi [Name]," -- just jump into the substance
+- End with something forward-looking (shared interest, conversation topic)
+
+Write ONLY the note text, nothing else."""
+
+    result = generate(
+        prompt,
+        system_prompt=persona_system_prompt,
+        max_tokens=150,
+        temperature=0.8,
+    )
+
+    if not result:
+        return None
+
+    # Strip quotes
+    if result.startswith('"') and result.endswith('"'):
+        result = result[1:-1]
+
+    # Enforce 300-char hard limit
+    if len(result) > 300:
+        # Try to truncate at last sentence boundary
+        truncated = result[:297]
+        last_period = truncated.rfind(".")
+        last_excl = truncated.rfind("!")
+        cut_point = max(last_period, last_excl)
+        if cut_point > 200:
+            result = result[:cut_point + 1]
+        else:
+            result = truncated.rstrip() + "..."
+
+    return result
+
+
+def generate_voice_script(
+    profile_info: dict,
+    persona_system_prompt: str,
+) -> Optional[str]:
+    """Generate a personalized voice message script for a new LinkedIn connection.
+
+    The script will be converted to audio via ElevenLabs TTS (Kyle's cloned voice)
+    and sent as a DM. Should sound natural when spoken aloud -- conversational,
+    warm, 30-60 seconds when read at normal pace (~150 words/min).
+
+    Args:
+        profile_info: Dict with name, headline, about, experience, etc.
+        persona_system_prompt: Kyle's persona system prompt.
+
+    Returns:
+        Voice script text (75-150 words), or None on failure.
+    """
+    name = profile_info.get("name", "").split()[0]  # First name only
+    headline = profile_info.get("headline", "")
+    about = (profile_info.get("about") or "")[:400]
+    experience = profile_info.get("experience", [])
+    location = profile_info.get("location", "")
+
+    exp_text = ""
+    if experience:
+        exp_text = "\n".join(
+            f"- {e.get('title', '')} at {e.get('company', '')}" for e in experience[:3]
+        )
+
+    prompt = f"""Write a short voice message script for a new LinkedIn connection. This will be
+converted to audio with my cloned voice and sent as a DM, so it must sound natural when spoken.
+
+New connection's profile:
+- First name: {name}
+- Headline: {headline}
+- Location: {location}
+- About: {about}
+- Experience:
+{exp_text}
+
+Rules:
+- 75-150 words (30-60 seconds when spoken at normal pace)
+- Address them by first name
+- Reference something specific from their profile
+- Mention a potential area of shared interest or collaboration
+- Sound warm and genuine, like talking to a new colleague
+- Use contractions (I'm, you're, that's) -- this is spoken, not written
+- NO self-promotion, NO pitching, NO "let me know if I can help"
+- NO "I came across your profile" or robotic openers
+- Open naturally: "Hey [name]" or "[Name], thanks for connecting"
+- End with something open-ended that invites a reply
+- Write it as a continuous paragraph (no bullet points or lists)
+- Don't include stage directions or brackets
+
+Write ONLY the script text."""
+
+    result = generate(
+        prompt,
+        system_prompt=persona_system_prompt,
+        max_tokens=300,
+        temperature=0.8,
+    )
+
+    if not result:
+        return None
+
+    # Strip quotes
+    if result.startswith('"') and result.endswith('"'):
+        result = result[1:-1]
+
+    return result
+
+
+# Valid DM intent categories
+DM_INTENTS = [
+    "greeting", "job_opportunity", "business_inquiry", "collaboration",
+    "question", "compliment", "sales_pitch", "spam", "follow_up",
+]
+
+
+def classify_dm_intent(
+    messages: list[dict],
+    sender_info: dict,
+) -> str:
+    """Classify the intent of a LinkedIn DM conversation.
+
+    Uses the LLM to analyze the conversation and return one of 9 intent
+    categories that determines how the auto-reply will be generated.
+
+    Args:
+        messages: List of message dicts with author, text, is_self keys.
+        sender_info: Dict with sender name, headline, etc.
+
+    Returns:
+        One of: greeting, job_opportunity, business_inquiry, collaboration,
+        question, compliment, sales_pitch, spam, follow_up.
+    """
+    # Format conversation for the prompt
+    convo_lines = []
+    for msg in messages[-10:]:
+        who = "ME" if msg.get("is_self") else msg.get("author", "THEM")
+        convo_lines.append(f"{who}: {msg.get('text', '')}")
+    convo_text = "\n".join(convo_lines)
+
+    sender_name = sender_info.get("name", sender_info.get("sender", "Unknown"))
+    sender_headline = sender_info.get("headline", "")
+
+    prompt = f"""Classify the intent of this LinkedIn DM conversation. Return ONLY one of these labels, nothing else:
+
+greeting - Simple hello, nice to connect, intro message
+job_opportunity - Recruiting, job offer, role discussion, hiring inquiry
+business_inquiry - Asking about services, capabilities, or working together commercially
+collaboration - Proposing a joint project, content collaboration, partnership
+question - Asking for advice, information, or help on a topic
+compliment - Praising content, posts, or work
+sales_pitch - Selling a product or service to me
+spam - Obvious spam, scam, crypto, mass outreach template
+follow_up - Continuing a previous conversation or referencing past interaction
+
+Sender: {sender_name}
+Sender headline: {sender_headline}
+
+Conversation:
+{convo_text}
+
+Return ONLY the intent label (one word, lowercase):"""
+
+    result = generate(
+        prompt,
+        system_prompt="You are a message classifier. Return exactly one intent label, nothing else.",
+        max_tokens=20,
+        temperature=0.2,
+        inject_safety=False,
+    )
+
+    if result:
+        result = result.strip().lower().replace('"', '').replace("'", "")
+        # Validate against known intents
+        if result in DM_INTENTS:
+            return result
+        # Fuzzy match
+        for intent in DM_INTENTS:
+            if intent in result:
+                return intent
+
+    logger.warning("Could not classify DM intent, defaulting to 'greeting'")
+    return "greeting"
+
+
+# Intent-specific generation instructions
+_DM_INTENT_RULES = {
+    "greeting": (
+        "This is a simple hello/intro message. Write a warm, brief reply (1-2 sentences). "
+        "Ask what they're working on or what caught their interest. Be friendly and open."
+    ),
+    "job_opportunity": (
+        "This person is reaching out about a job or role. Be warm and genuinely interested "
+        "in THE WORK itself (the challenge, the team, the problem). Express curiosity about "
+        "what they're building. DO NOT say you're 'open to work', 'looking', or 'job searching'. "
+        "DO NOT mention your current employer. Frame it as always being interested in interesting "
+        "conversations about AI and operations work. 2-3 sentences."
+    ),
+    "business_inquiry": (
+        "They're asking about services or working together commercially. Be interested and "
+        "ask questions about their specific needs. DO NOT pitch, quote prices, or commit to "
+        "anything. DO NOT say 'hire me' or 'my consulting'. Just understand what they need. "
+        "2-3 sentences."
+    ),
+    "collaboration": (
+        "They want to collaborate on something. Be enthusiastic and ask specifics — what "
+        "exactly they have in mind, timeline, scope. Show genuine interest. 2-3 sentences."
+    ),
+    "question": (
+        "They're asking for advice or information. Be helpful and give a direct, useful "
+        "answer if you can. If the topic is in your domain (AI, automation, supply chain, ops), "
+        "share a practical insight. If not, be honest about your limits. 2-4 sentences."
+    ),
+    "compliment": (
+        "They're praising your work or content. Be briefly grateful (not gushing), then "
+        "pivot to substance — ask what they're building or what resonated with them. "
+        "1-2 sentences. Don't be sycophantic back."
+    ),
+    "sales_pitch": (
+        "They're selling something to you. Write a single polite sentence declining. "
+        "Example tone: 'Appreciate you reaching out — not something I need right now, "
+        "but best of luck with it.' Do not engage further."
+    ),
+    "follow_up": (
+        "They're continuing a previous conversation. Reference the context from earlier "
+        "messages in the thread. Be responsive and continue naturally. 2-3 sentences."
+    ),
+}
+
+
+def generate_dm_reply(
+    messages: list[dict],
+    sender_info: dict,
+    intent: str,
+    persona_system_prompt: str,
+) -> Optional[str]:
+    """Generate a DM reply based on classified intent.
+
+    Each intent category has specific rules about tone, length, and what
+    to avoid. The LLM sees the full conversation context to generate
+    a natural, contextual reply.
+
+    Args:
+        messages: List of message dicts with author, text, is_self.
+        sender_info: Dict with sender name, headline, etc.
+        intent: Classified intent string.
+        persona_system_prompt: Kyle's persona system prompt.
+
+    Returns:
+        Reply text string, or None on failure.
+    """
+    if intent == "spam":
+        return None  # Don't reply to spam
+
+    # Format conversation
+    convo_lines = []
+    for msg in messages[-10:]:
+        who = "Me" if msg.get("is_self") else msg.get("author", "Them")
+        convo_lines.append(f"{who}: {msg.get('text', '')}")
+    convo_text = "\n".join(convo_lines)
+
+    sender_name = sender_info.get("name", sender_info.get("sender", "Unknown"))
+    first_name = sender_name.split()[0] if sender_name else "there"
+    sender_headline = sender_info.get("headline", "")
+
+    intent_rules = _DM_INTENT_RULES.get(intent, _DM_INTENT_RULES["greeting"])
+
+    prompt = f"""Write a LinkedIn DM reply to this conversation.
+
+Intent detected: {intent}
+Specific instructions: {intent_rules}
+
+Sender: {sender_name}
+Sender headline: {sender_headline}
+
+Conversation so far:
+{convo_text}
+
+General rules:
+- Sound like a real person texting, not a formal email
+- Use contractions (I'm, you're, that's)
+- No emojis
+- Don't repeat what they said back to them
+- Don't use "I hope this finds you well" or other corporate filler
+- You can use their first name ({first_name}) naturally
+- Do NOT self-promote, pitch services, or mention your employer
+- Do NOT signal job searching in any way
+
+Write ONLY the reply message, nothing else."""
+
+    result = generate(
+        prompt,
+        system_prompt=persona_system_prompt,
+        max_tokens=250,
+        temperature=0.8,
+    )
+
+    if not result:
+        return None
+
+    # Strip quotes
+    if result.startswith('"') and result.endswith('"'):
+        result = result[1:-1]
+
+    # Replace em dashes
+    result = result.replace("\u2014", "-").replace("\u2013", "-")
+
+    return result

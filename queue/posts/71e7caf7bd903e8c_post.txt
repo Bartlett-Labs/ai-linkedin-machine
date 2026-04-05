@@ -1,0 +1,18 @@
+# The Bullwhip Effect Hiding in the AI Energy Boom
+
+Most people are reading the AI data center buildout as a tech story. From a demand planning perspective, it's a supply chain story — and a textbook one at that.
+
+Here's what's happening: Major tech companies are racing to lock down natural gas infrastructure to power massive data centers. One facility in Louisiana is planned for 7.46 GW — enough to power South Dakota. Another in West Texas could reach 5 GW.
+
+That concentrated surge in demand is cascading upstream in predictable ways:
+
+- Gas turbine prices are projected to rise 195% relative to 2019 levels
+- New turbine orders are reportedly unavailable until 2028
+- Delivery lead times have stretched to six years
+- Turbine equipment represents 20-30% of total power plant cost
+
+This is the bullwhip effect playing out in real time. Downstream AI demand is amplifying volatility through every upstream tier — equipment manufacturers, commodity markets, energy pricing. Natural gas still generates roughly 40% of U.S. electricity, which means these distortions don't stay contained in tech. They ripple into every industry that depends on that same grid.
+
+For anyone doing long-range capacity planning or building forecasting assumptions, this is worth paying attention to. We tend to model digital transformation as if it lives in the cloud. But every model, every training run, every inference call has a physical dependency — and those physical resources have their own lead times, constraints, and demand signals.
+
+I wonder how many five-year plans are accounting for the energy cost assumptions that are quietly shifting underneath them.

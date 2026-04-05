@@ -372,7 +372,7 @@ def _generate_comment(
     # Build template fallback list from Sheet templates
     fallback_texts = [t.template_text for t in templates if t.template_text] if templates else None
 
-    return llm_generate_comment(
+    comment = llm_generate_comment(
         post_text=post_text,
         persona_system_prompt=persona.get("system_prompt", ""),
         style=style,
@@ -380,6 +380,9 @@ def _generate_comment(
         feedback=feedback,
         fallback_templates=fallback_texts,
     )
+    if comment:
+        comment = comment.replace("\u2014", "-").replace("\u2013", "-")
+    return comment
 
 
 if __name__ == "__main__":

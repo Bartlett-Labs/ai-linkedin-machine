@@ -1,0 +1,57 @@
+# Auto-Connection Engine Configuration
+# Controls daily connection request budgets, search criteria, voice follow-up, and rate limiting.
+
+daily_limit: 25              # LinkedIn Premium max (~25/day, conservative)
+commenter_priority: true     # Commenters on Kyle's posts always get first priority
+
+# Outbound search criteria — used to find relevant people to connect with
+search:
+  keywords:
+    - "AI automation"
+    - "supply chain"
+    - "operations"
+    - "demand planning"
+    - "process automation"
+    - "data science"
+    - "machine learning"
+    - "supply chain planning"
+    - "forecasting"
+  location: "United States"
+  industries:
+    - "Technology"
+    - "Manufacturing"
+    - "Supply Chain & Logistics"
+    - "Consumer Goods"
+  title_keywords:           # Prefer people with these titles
+    - "CTO"
+    - "VP Engineering"
+    - "VP Operations"
+    - "VP Supply Chain"
+    - "Director of Operations"
+    - "Director of Supply Chain"
+    - "Head of AI"
+    - "Data Science"
+    - "Supply Chain"
+    - "Automation"
+    - "ML Engineer"
+    - "Demand Planning"
+    - "Founder"
+    - "S&OP"
+    - "IBP"
+
+# ElevenLabs voice follow-up configuration
+voice:
+  voice_id: ""              # Set after cloning Kyle's voice in ElevenLabs
+  model: "eleven_multilingual_v2"
+  max_duration_sec: 60
+  stability: 0.5
+  similarity_boost: 0.8
+  output_dir: "tracking/linkedin/voice_messages"
+
+# Rate limiting — human-like pacing to avoid detection
+rate_limiting:
+  min_delay_between_requests_sec: 45
+  max_delay_between_requests_sec: 90
+  min_delay_between_searches_sec: 120
+  voice_delay_after_acceptance_hours: 2   # Wait before DMing new connections
+  max_profiles_per_search: 10

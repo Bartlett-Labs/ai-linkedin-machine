@@ -2,6 +2,16 @@
 
 This file exists to catch any new Claude (or other AI assistant) session up on what this project is, what has been built, and where things stand.
 
+## Approach
+- Think before acting. Read existing files before writing code.
+- Be concise in output but thorough in reasoning.
+- Prefer editing over rewriting whole files.
+- Do not re-read files you have already read unless the file may have changed.
+- Test your code before declaring done.
+- No sycophantic openers or closing fluff.
+- Keep solutions simple and direct.
+- User instructions always override this file.
+
 ---
 
 ## What Is This Project
@@ -306,20 +316,25 @@ Defined in `config/rate_limits.yaml`. Current phase is read from Sheet EngineCon
 
 ---
 
+## What Has Been Tested and Verified
+
+1. Google Sheet connectivity — working (used for initial seed, still available via DATA_BACKEND=sheets toggle)
+2. Playwright browser launch + persistent sessions — working (MainUser sessions at ~/.ai-linkedin-machine/sessions/)
+3. LinkedIn DOM selectors — verified 2026-04-03 (activity page uses `div[data-urn]` fallback)
+4. LLM API calls — Claude via ai-router proxy (vertex_ai/claude-opus-4-6), OpenAI GPT-5.2 fallback
+5. Commenter — tested live, 404 detection added, target pool expanded
+6. Replier — tested E2E, 5 bug-fix cycles, successfully posted live reply to Brian Kerrigan
+7. RSS ingestion — hash manifest dedup, 7-day recency, full pipeline dry run in ~100s
+8. Safety filter — 30+ blocked phrases, consulting pattern relaxed to avoid false positives
+9. Kill switch — functional (STOP file in project root)
+
 ## What Has NOT Been Tested Yet
 
-The code has been written but not executed. The following need to be verified:
-
-1. Google Sheet connectivity (service account auth, reading/writing all tabs)
-2. Playwright browser launch + persistent session persistence
-3. LinkedIn DOM selectors (LinkedIn changes their HTML frequently)
-4. LLM API calls (Anthropic + OpenAI key validation)
-5. End-to-end: Sheet queue item → Playwright post → Sheet status update
-6. Phantom persona engagement timing
-7. Safety filter coverage (all blocked phrases caught)
-8. Kill switch activation/deactivation
-9. The `STOP` file path resolution (relative to project root)
-10. RSS ingestion still working after all the refactoring
+1. Phantom persona engagement (Marcus Chen is first — implementation in progress)
+2. Multi-persona orchestrated engagement (phantoms commenting after MainUser posts)
+3. Content generation quality (RSS → summarize → generate posts → verify)
+4. Deploy to Coolify (production deployment behind reverse proxy)
+5. Commenter dry-run skip (orchestrator still launches Playwright in dry-run mode)
 
 ---
 

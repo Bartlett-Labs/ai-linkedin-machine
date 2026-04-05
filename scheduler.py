@@ -25,6 +25,7 @@ load_dotenv(_PROJECT_ROOT / ".env")
 from utils import project_path
 from scheduling.orchestrator import run_orchestrator
 from scheduling.content_calendar import is_in_posting_window, get_next_posting_time
+from scheduling.heartbeat import run_all_heartbeats
 
 
 def _get_data_client():
@@ -74,6 +75,9 @@ def main():
         except Exception as e:
             logger.debug("Could not load ActivityWindows from Sheet: %s", e)
 
+    # Track last heartbeat run time to respect cycle intervals
+    last_heartbeat_time = 0.0
+
     while True:
         try:
             now = datetime.now(TIMEZONE)
@@ -99,7 +103,7 @@ def main():
                 except Exception:
                     pass
 
-                # Run orchestrator
+                # Run orchestrator (MainUser pipeline)
                 summary = asyncio.run(
                     run_orchestrator(
                         sheets_client=sheets_client,
@@ -119,6 +123,26 @@ def main():
                         next_time.strftime("%H:%M %Z"),
                     )
                 time.sleep(CHECK_INTERVAL_SEC)
+
+            # --- Phantom persona heartbeats (independent of posting window) ---
+            # Run every CHECK_INTERVAL; each persona's active_hours are checked internally
+            elapsed_since_heartbeat = time.time() - last_heartbeat_time
+            if elapsed_since_heartbeat >= CHECK_INTERVAL_SEC:
+                try:
+                    heartbeat_results = asyncio.run(
+                        run_all_heartbeats(dry_run=False, headless=headless)
+                    )
+                    if heartbeat_results:
+                        total = sum(
+                            len(r.get("comments", [])) + len(r.get("kyle_comments", []))
+                            for r in heartbeat_results
+                        )
+                        logger.info("Heartbeat cycle: %d persona(s), %d total comments",
+                                    len(heartbeat_results), total)
+                    last_heartbeat_time = time.time()
+                except Exception as e:
+                    logger.error("Heartbeat error: %s", e, exc_info=True)
+                    last_heartbeat_time = time.time()  # Don't retry immediately
 
         except KeyboardInterrupt:
             logger.info("Scheduler stopped by user")

@@ -32,8 +32,12 @@ def _ensure_dir():
     Path(TRACKING_DIR).mkdir(parents=True, exist_ok=True)
 
 
-def get_daily_stats() -> dict:
+def get_daily_stats(persona: Optional[str] = None) -> dict:
     """Read today's tracking file and return stats.
+
+    Args:
+        persona: If provided, only count actions by this persona.
+                 If None, counts all actions (original behavior).
 
     Returns dict with keys: comments_posted, posts_made, replies_sent,
     likes_given, last_action_time, actions (list).
@@ -55,18 +59,35 @@ def get_daily_stats() -> dict:
     with open(path, "r") as f:
         content = f.read()
 
-    # Parse the stats section
-    for line in content.split("\n"):
-        if line.startswith("- **Comments posted**:"):
-            stats["comments_posted"] = _parse_int(line)
-        elif line.startswith("- **Posts made**:"):
-            stats["posts_made"] = _parse_int(line)
-        elif line.startswith("- **Replies sent**:"):
-            stats["replies_sent"] = _parse_int(line)
-        elif line.startswith("- **Likes given**:"):
-            stats["likes_given"] = _parse_int(line)
-        elif line.startswith("- **Last action**:"):
-            stats["last_action_time"] = line.split(":", 1)[-1].strip()
+    if persona is None:
+        # Original behavior: read summary counters
+        for line in content.split("\n"):
+            if line.startswith("- **Comments posted**:"):
+                stats["comments_posted"] = _parse_int(line)
+            elif line.startswith("- **Posts made**:"):
+                stats["posts_made"] = _parse_int(line)
+            elif line.startswith("- **Replies sent**:"):
+                stats["replies_sent"] = _parse_int(line)
+            elif line.startswith("- **Likes given**:"):
+                stats["likes_given"] = _parse_int(line)
+            elif line.startswith("- **Last action**:"):
+                stats["last_action_time"] = line.split(":", 1)[-1].strip()
+    else:
+        # Per-persona: parse individual entries and count by persona
+        import re
+        # Split into entries by ### headers
+        entries = re.split(r'\n### ', content)
+        for entry in entries:
+            if f"**Persona**: {persona}" not in entry:
+                continue
+            if "Comment on post by" in entry or "Comment" in entry.split("\n")[0]:
+                stats["comments_posted"] += 1
+            elif "Post by" in entry:
+                stats["posts_made"] += 1
+            elif "Reply to" in entry:
+                stats["replies_sent"] += 1
+            elif "Like by" in entry:
+                stats["likes_given"] += 1
 
     # Extract URLs that have been commented on
     import re

@@ -8,9 +8,13 @@ import { useAlerts } from "@/hooks/use-alerts";
 import { usePipelineStatus } from "@/hooks/use-pipeline-status";
 import { getEngine, getTodaySummary, getWeeklyPlan, updateEngine } from "@/lib/api";
 import type { EngineControl, DailySummary, WeeklyPlanDay } from "@/lib/api";
-import { Activity, MessageSquare, FileText, Reply, Clock, Play, CheckCircle2, XCircle, Loader2, Wifi } from "lucide-react";
+import { Activity, MessageSquare, FileText, Reply, Clock, Play, CheckCircle2, XCircle, Loader2, Wifi, LayoutDashboard } from "lucide-react";
 
-const MODE_COLORS: Record<string, string> = { Live: "bg-green-500", DryRun: "bg-yellow-500", Paused: "bg-red-500" };
+const MODE_STYLES: Record<string, { badge: string; dot: string }> = {
+  Live: { badge: "bg-[#22c55e]/10 text-[#22c55e] border border-[#22c55e]/20", dot: "bg-[#22c55e]" },
+  DryRun: { badge: "bg-[#f59e0b]/10 text-[#f59e0b] border border-[#f59e0b]/20", dot: "bg-[#f59e0b]" },
+  Paused: { badge: "bg-[#ef4444]/10 text-[#ef4444] border border-[#ef4444]/20", dot: "bg-[#ef4444]" },
+};
 
 export default function DashboardPage() {
   const engine = useApi<EngineControl>(getEngine);
@@ -20,63 +24,86 @@ export default function DashboardPage() {
   const pipeline = usePipelineStatus();
 
   return (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold">Dashboard</h2>
+    <div className="space-y-6 max-w-6xl">
+      {/* Header */}
+      <div>
+        <h2 className="text-2xl font-semibold flex items-center gap-2.5">
+          <LayoutDashboard className="h-5 w-5 text-[#06b6d4]" />
+          Dashboard
+        </h2>
+        <p className="text-sm text-[#73808c] mt-1">Operator overview — engine status, pipeline health, daily metrics</p>
+      </div>
+
       {/* Engine Status */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="flex items-center justify-between">
-            <span>Engine Status</span>
-            {engine.data && <Badge className={MODE_COLORS[engine.data.mode] || "bg-gray-500"}>{engine.data.mode}</Badge>}
+          <CardTitle className="flex items-center justify-between text-sm">
+            <span className="uppercase tracking-wider text-[11px] font-semibold text-[#73808c]">Engine Status</span>
+            {engine.data && (() => {
+              const s = MODE_STYLES[engine.data.mode] || MODE_STYLES.Paused;
+              return (
+                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${s.badge}`}>
+                  <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} />
+                  {engine.data.mode}
+                </span>
+              );
+            })()}
           </CardTitle>
         </CardHeader>
         <CardContent>
           {engine.data && (
             <div className="space-y-4">
               <div className="flex items-center gap-4 flex-wrap">
-                <span className="text-sm text-muted-foreground">Phase:</span>
-                <Badge variant="outline">{engine.data.phase}</Badge>
-                <span className="text-sm text-muted-foreground ml-4">Last run:</span>
-                <span className="text-sm">{engine.data.last_run || "Never"}</span>
+                <span className="text-xs text-[#73808c] uppercase tracking-wider">Phase</span>
+                <Badge variant="outline" className="font-mono-data text-xs">{engine.data.phase}</Badge>
+                <span className="text-xs text-[#73808c] uppercase tracking-wider ml-4">Last Run</span>
+                <span className="text-xs font-mono-data text-[#a7b0b8]">{engine.data.last_run || "Never"}</span>
               </div>
               <div className="flex gap-2">
-                {(["Live", "DryRun", "Paused"] as const).map((m) => (
-                  <Button key={m} size="sm" variant={engine.data?.mode === m ? "default" : "outline"}
-                    onClick={() => { updateEngine({ mode: m }).then(() => engine.refetch()); }}>{m}</Button>
-                ))}
+                {(["Live", "DryRun", "Paused"] as const).map((m) => {
+                  const active = engine.data?.mode === m;
+                  return (
+                    <Button key={m} size="sm"
+                      variant={active ? "default" : "outline"}
+                      className={active ? "bg-[#06b6d4] text-[#090a0b] hover:bg-[#22d3ee]" : ""}
+                      onClick={() => { updateEngine({ mode: m }).then(() => engine.refetch()); }}
+                    >{m}</Button>
+                  );
+                })}
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2">
                 {([
                   ["Posting", "main_user_posting"], ["Commenting", "commenting"],
                   ["Replying", "replying"], ["Phantom", "phantom_engagement"],
                 ] as const).map(([label, key]) => (
-                  <div key={key} className="flex items-center gap-2">
+                  <div key={key} className="flex items-center gap-2.5">
                     <Switch checked={(engine.data as unknown as Record<string, boolean>)[key] ?? false}
                       onCheckedChange={(v) => { updateEngine({ [key]: v } as Partial<EngineControl>).then(() => engine.refetch()); }} />
-                    <span className="text-sm">{label}</span>
+                    <span className="text-sm text-[#a7b0b8]">{label}</span>
                   </div>
                 ))}
               </div>
             </div>
           )}
-          {engine.loading && <p className="text-sm text-muted-foreground">Loading...</p>}
+          {engine.loading && <p className="text-sm text-[#73808c]">Loading...</p>}
         </CardContent>
       </Card>
-      {/* Pipeline Status (real-time via WebSocket) */}
+
+      {/* Pipeline Status */}
       {pipeline.connected && (
-        <Card className={pipeline.isRunning ? "border-blue-400/20" : undefined}>
+        <Card className={pipeline.isRunning ? "border-[#06b6d4]/20" : undefined}>
           <CardContent className="py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 {pipeline.isRunning ? (
                   <>
-                    <Loader2 className="h-5 w-5 text-blue-400 animate-spin" />
+                    <Loader2 className="h-5 w-5 text-[#06b6d4] animate-spin" />
                     <div>
-                      <p className="text-sm font-medium">Pipeline Running — Run #{pipeline.activeRun?.id}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {pipeline.activeRun?.trigger_type} &middot; {pipeline.activeRun?.phase}
+                      <p className="text-sm font-medium">Pipeline Running — <span className="font-mono-data">Run #{pipeline.activeRun?.id}</span></p>
+                      <p className="text-xs text-[#73808c] mt-0.5">
+                        <span className="font-mono-data">{pipeline.activeRun?.trigger_type}</span> &middot; {pipeline.activeRun?.phase}
                         {pipeline.liveOutput.length > 0 && (
-                          <span className="ml-2 text-blue-400">{pipeline.liveOutput[pipeline.liveOutput.length - 1]}</span>
+                          <span className="ml-2 text-[#06b6d4]">{pipeline.liveOutput[pipeline.liveOutput.length - 1]}</span>
                         )}
                       </p>
                     </div>
@@ -84,29 +111,29 @@ export default function DashboardPage() {
                 ) : pipeline.recentRuns.length > 0 ? (
                   <>
                     {pipeline.recentRuns[0].status === "completed" ? (
-                      <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+                      <CheckCircle2 className="h-5 w-5 text-[#22c55e]" />
                     ) : pipeline.recentRuns[0].status === "failed" ? (
-                      <XCircle className="h-5 w-5 text-red-400" />
+                      <XCircle className="h-5 w-5 text-[#ef4444]" />
                     ) : (
-                      <Play className="h-5 w-5 text-muted-foreground" />
+                      <Play className="h-5 w-5 text-[#73808c]" />
                     )}
                     <div>
                       <p className="text-sm font-medium">
-                        Last Run #{pipeline.recentRuns[0].id} — {pipeline.recentRuns[0].status}
+                        Last Run <span className="font-mono-data">#{pipeline.recentRuns[0].id}</span> — {pipeline.recentRuns[0].status}
                       </p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
+                      <p className="text-xs text-[#73808c] mt-0.5">
                         {pipeline.recentRuns[0].summary?.slice(0, 80) || "No summary"}
                       </p>
                     </div>
                   </>
                 ) : (
                   <>
-                    <Play className="h-5 w-5 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">No pipeline runs yet</p>
+                    <Play className="h-5 w-5 text-[#73808c]" />
+                    <p className="text-sm text-[#73808c]">No pipeline runs yet</p>
                   </>
                 )}
               </div>
-              <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400">
+              <span className="inline-flex items-center gap-1 text-[10px] text-[#22c55e]">
                 <Wifi className="h-3 w-3" />Live
               </span>
             </div>
@@ -115,40 +142,57 @@ export default function DashboardPage() {
       )}
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {([
-          ["Posts Today", stats.data?.posts_made ?? 0, FileText],
-          ["Comments", stats.data?.comments_posted ?? 0, MessageSquare],
-          ["Replies", stats.data?.replies_sent ?? 0, Reply],
-          ["Likes", stats.data?.likes_given ?? 0, Activity],
-        ] as const).map(([label, value, Icon]) => (
+          ["Posts Today", stats.data?.posts_made ?? 0, FileText, "#06b6d4"],
+          ["Comments", stats.data?.comments_posted ?? 0, MessageSquare, "#22c55e"],
+          ["Replies", stats.data?.replies_sent ?? 0, Reply, "#f59e0b"],
+          ["Likes", stats.data?.likes_given ?? 0, Activity, "#a7b0b8"],
+        ] as const).map(([label, value, Icon, color]) => (
           <Card key={String(label)}>
-            <CardContent className="pt-6">
+            <CardContent className="pt-5">
               <div className="flex items-center justify-between">
-                <div><p className="text-sm text-muted-foreground">{String(label)}</p><p className="text-3xl font-bold">{String(value)}</p></div>
-                <Icon className="h-8 w-8 text-muted-foreground" />
+                <div>
+                  <p className="text-[11px] uppercase tracking-wider text-[#73808c] font-medium">{String(label)}</p>
+                  <p className="text-3xl font-semibold font-mono-data mt-1">{String(value)}</p>
+                </div>
+                <div className="h-10 w-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${color}10` }}>
+                  <Icon className="h-5 w-5" style={{ color: String(color) }} />
+                </div>
               </div>
             </CardContent>
           </Card>
         ))}
       </div>
-      <div className="grid md:grid-cols-2 gap-6">
+
+      <div className="grid md:grid-cols-2 gap-4">
         {/* Schedule */}
         <Card>
-          <CardHeader><CardTitle className="flex items-center gap-2"><Clock className="h-5 w-5" />Today&apos;s Schedule</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <Clock className="h-4 w-4 text-[#06b6d4]" />
+              Today&apos;s Schedule
+            </CardTitle>
+          </CardHeader>
           <CardContent>
             {plan.data?.[0] && (
               <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">{plan.data[0].day}, {plan.data[0].date}</p>
-                {plan.data[0].is_post_day && <Badge className="bg-blue-500">Post Day</Badge>}
-                <div className="space-y-1 mt-2">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm text-[#a7b0b8]">{plan.data[0].day}, <span className="font-mono-data">{plan.data[0].date}</span></p>
+                  {plan.data[0].is_post_day && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#06b6d4]/10 text-[#06b6d4] border border-[#06b6d4]/20 font-medium">
+                      Post Day
+                    </span>
+                  )}
+                </div>
+                <div className="space-y-0.5 mt-2">
                   {plan.data[0].actions.map((action, i) => (
-                    <div key={i} className="flex items-center gap-2 text-sm py-1 border-b last:border-0">
-                      <Badge variant="outline" className="text-xs">{action.type}</Badge>
-                      {action.content_stream && <span>{action.content_stream}</span>}
-                      {action.window && <span className="text-muted-foreground">@ {action.window}</span>}
-                      {action.target_category && <span>{action.target_category}</span>}
-                      {action.count !== undefined && <span className="text-muted-foreground">x{action.count}</span>}
+                    <div key={i} className="flex items-center gap-2 text-sm py-1.5 border-b border-[#2a3138]/50 last:border-0">
+                      <Badge variant="outline" className="text-[10px] font-mono-data">{action.type}</Badge>
+                      {action.content_stream && <span className="text-[#a7b0b8]">{action.content_stream}</span>}
+                      {action.window && <span className="text-[#73808c] font-mono-data text-xs">@ {action.window}</span>}
+                      {action.target_category && <span className="text-[#a7b0b8]">{action.target_category}</span>}
+                      {action.count !== undefined && <span className="text-[#73808c] font-mono-data">x{action.count}</span>}
                     </div>
                   ))}
                 </div>
@@ -156,20 +200,37 @@ export default function DashboardPage() {
             )}
           </CardContent>
         </Card>
+
         {/* Alerts */}
         <Card>
-          <CardHeader><CardTitle className="flex items-center gap-2"><Activity className="h-5 w-5" />Engagement Alerts</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <Activity className="h-4 w-4 text-[#f59e0b]" />
+              Engagement Alerts
+            </CardTitle>
+          </CardHeader>
           <CardContent>
-            {alerts.length === 0 ? <p className="text-sm text-muted-foreground">No pending alerts</p> : (
-              <div className="space-y-2">
-                {alerts.slice(0, 5).map((a) => (
-                  <div key={a.alert_id} className="flex items-center justify-between py-2 border-b last:border-0">
-                    <div><p className="text-sm font-medium">{a.commenter_name}</p><p className="text-xs text-muted-foreground truncate max-w-[200px]">{a.comment_text}</p></div>
-                    <Badge className={a.urgency === "optimal" ? "bg-green-500" : a.urgency === "good" ? "bg-yellow-500" : a.urgency === "urgent" ? "bg-red-500" : "bg-gray-500"}>
-                      {Math.round(a.elapsed_minutes)}m
-                    </Badge>
-                  </div>
-                ))}
+            {alerts.length === 0 ? (
+              <p className="text-sm text-[#73808c]">No pending alerts</p>
+            ) : (
+              <div className="space-y-1">
+                {alerts.slice(0, 5).map((a) => {
+                  const urgencyColor = a.urgency === "optimal" ? "#22c55e" : a.urgency === "good" ? "#f59e0b" : a.urgency === "urgent" ? "#ef4444" : "#73808c";
+                  return (
+                    <div key={a.alert_id} className="flex items-center justify-between py-2 border-b border-[#2a3138]/50 last:border-0">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">{a.commenter_name}</p>
+                        <p className="text-xs text-[#73808c] truncate max-w-[220px]">{a.comment_text}</p>
+                      </div>
+                      <span
+                        className="text-[10px] px-2 py-0.5 rounded-full border font-mono-data font-medium shrink-0 ml-2"
+                        style={{ color: urgencyColor, borderColor: `${urgencyColor}30`, backgroundColor: `${urgencyColor}10` }}
+                      >
+                        {Math.round(a.elapsed_minutes)}m
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </CardContent>

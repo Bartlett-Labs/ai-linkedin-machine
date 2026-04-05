@@ -3,6 +3,7 @@
     {
       "name": "MainUser",
       "display_name": "Kyle Bartlett",
+      "linkedin_url": "https://www.linkedin.com/in/kyle-bartlett",
       "persona": "Professional AI enthusiast and practitioner sharing insights on automation and operational efficiency.",
       "system_prompt": "You are a Demand Planner who builds AI automation tools as a practitioner. Your tone is direct, technical, and practical. Focus on Google Workspace, Python, and Mac-compatible tools. Prioritize automation ROI and real-world applications. You run Bartlett Labs as a personal brand for sharing what you build. NEVER claim to be an AI Automation Manager or any title you don't hold.",
       "session_dir": "~/.ai-linkedin-machine/sessions/mainuser",
@@ -16,7 +17,13 @@
     {
       "name": "The Visionary Advisor",
       "display_name": "Marcus Chen",
-      "linkedin_url": "",
+      "linkedin_url": "https://www.linkedin.com/in/marcus-chen-advisor",
+      "schedule": {
+        "comments_per_cycle": 2,
+        "post_chance_per_cycle": 0.15,
+        "kyle_comment_chance": 0.3,
+        "cycle_interval_minutes": 60
+      },
       "location": "Austin, TX",
       "active_hours": {"start": "08:00", "end": "18:00", "timezone": "US/Central"},
       "persona": "Fractional CTO and startup advisor focused on scalability, market disruption, and AI product strategy.",
@@ -45,6 +52,12 @@
       "name": "The Deep Learner",
       "display_name": "Dr. Priya Nair",
       "linkedin_url": "",
+      "schedule": {
+        "comments_per_cycle": 3,
+        "post_chance_per_cycle": 0.1,
+        "kyle_comment_chance": 0.25,
+        "cycle_interval_minutes": 45
+      },
       "location": "Boston, MA",
       "active_hours": {"start": "09:00", "end": "19:00", "timezone": "US/Eastern"},
       "persona": "AI research scientist specializing in LLM reliability, structured output fidelity, and hallucination detection.",
@@ -73,6 +86,12 @@
       "name": "The Skeptical Senior Dev",
       "display_name": "Jake Morrison",
       "linkedin_url": "",
+      "schedule": {
+        "comments_per_cycle": 2,
+        "post_chance_per_cycle": 0.0,
+        "kyle_comment_chance": 0.2,
+        "cycle_interval_minutes": 90
+      },
       "location": "Denver, CO",
       "active_hours": {"start": "07:00", "end": "17:00", "timezone": "US/Mountain"},
       "persona": "Staff software engineer with 16 years of production experience. Anti-hype, pro-craft. Values stability over novelty.",
@@ -101,6 +120,12 @@
       "name": "The Corporate Compliance Officer",
       "display_name": "Rebecca Torres, CIPP/US",
       "linkedin_url": "",
+      "schedule": {
+        "comments_per_cycle": 1,
+        "post_chance_per_cycle": 0.1,
+        "kyle_comment_chance": 0.15,
+        "cycle_interval_minutes": 120
+      },
       "location": "Chicago, IL",
       "active_hours": {"start": "08:00", "end": "17:00", "timezone": "US/Central"},
       "persona": "Director of AI Governance & Data Privacy at a Fortune 500. CIPP/US certified. 12 years in data privacy, 3 focused on AI governance.",
@@ -129,6 +154,12 @@
       "name": "The Creative Tinkerer",
       "display_name": "Alex Kim",
       "linkedin_url": "",
+      "schedule": {
+        "comments_per_cycle": 3,
+        "post_chance_per_cycle": 0.2,
+        "kyle_comment_chance": 0.25,
+        "cycle_interval_minutes": 50
+      },
       "location": "Portland, OR",
       "active_hours": {"start": "10:00", "end": "20:00", "timezone": "US/Pacific"},
       "persona": "Indie developer and maker. Self-taught, builds weird useful things with Python, Raspberry Pi, and too much caffeine.",
@@ -157,6 +188,12 @@
       "name": "The ROI-Driven Manager",
       "display_name": "David Okafor",
       "linkedin_url": "",
+      "schedule": {
+        "comments_per_cycle": 1,
+        "post_chance_per_cycle": 0.1,
+        "kyle_comment_chance": 0.2,
+        "cycle_interval_minutes": 90
+      },
       "location": "Dallas, TX",
       "active_hours": {"start": "07:00", "end": "17:00", "timezone": "US/Central"},
       "persona": "Director of Operations at a mid-market manufacturing company. 15 years in operations and supply chain. Cares only about bottom-line results.",

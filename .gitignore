@@ -35,3 +35,7 @@ tracking/linkedin/leads.json
 .idea/
 *.swp
 *.swo
+
+# Xcode user data
+xcuserdata/
+*.xcuserstate

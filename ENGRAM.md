@@ -1,251 +1,231 @@
 # ENGRAM — AI LinkedIn Machine
 
-> Last updated: 2026-04-03T11:00 CST
+> Last updated: 2026-04-04T16:00 CST
 
-## Current State: PIPELINE DRY RUN PASSING — ingestion + summarization freshness-first
+## Current State: AUTO-CONNECTION ENGINE WITH VOICE OUTREACH — FULLY BUILT
 
-Pipeline completes in ~100s (was hours). RSS ingest uses hash manifest dedup + 7-day recency filter. Summarizer sorts newest-first, skips existing. Post generator skips existing. Commits: `91970c5` (freshness-first summarization), pending (RSS ingest fix).
+### Session 14 (2026-04-04): Auto-Connection Engine + ElevenLabs Voice Outreach
 
-### Session 10 (2026-04-03): RSS Ingestion Fix + Pipeline Dry Run
+**What was built:**
 
-- **RSS ingest rewritten** — `ingestion/rss_ingest.py` now has: (1) persistent hash manifest at `.seen_hashes.json` (survives file archiving), (2) publication date recency filter via feedparser's `published_parsed`/`updated_parsed`, (3) per-feed logging of new/old/seen counts. No flat cap — all fresh content ingested.
-- **Hash manifest seeded** — 4,204 hashes from current + archived raw files loaded into `.seen_hashes.json` to prevent re-ingestion.
-- **Queue fully cleaned** — 2,078 re-ingested raw articles archived, 27 stale summaries archived. Pipeline starts from clean state.
-- **Dry run verified** — 8 feeds fetched in ~7s, 0 new (all in manifest), 2,078 skipped (seen). Full pipeline completed in ~100s including orchestrator.
-- **Commenter still runs in dry-run** — Orchestrator launches Playwright and visits 16 LinkedIn targets even with `--dry-run`. Wastes ~90s. Should be skipped in dry-run mode (future fix).
+Browser automation (`browser/linkedin_actions.py` — 5 new functions):
+- `get_profile_info(page, profile_url)` — Scrape name, headline, about, experience, location, mutual connections
+- `send_connection_request(page, profile_url, note)` — 3 strategies to find Connect button, handles "Add a note" flow, 300-char limit
+- `search_linkedin_people(page, query, max_results)` — Search LinkedIn People, return list of profile dicts
+- `get_new_connections(page, max_results)` — Check My Network for recently accepted connections
+- `open_dm_and_send_audio(page, profile_url, audio_path, text)` — Send DM with audio file attachment
 
-### Session 9 (2026-04-02): Real-Time Pipeline Dashboard
-- **Pipeline output streaming** — `_execute_pipeline()` rewritten to stream subprocess stdout line-by-line into `_live_output[run_id]` shared buffer via `_read_stream()` helper. Uses `-u` flag for unbuffered Python output.
-- **WebSocket payload enhanced** — `/api/pipeline/ws` now includes `live_output` (last 50 lines) and `active_run_id` in every broadcast.
-- **`usePipelineStatus` React hook** — New hook at `dashboard/src/hooks/use-pipeline-status.ts`. Auto-reconnects on disconnect. Exposes `connected`, `activeRun`, `recentRuns`, `liveOutput`, `isRunning`.
-- **Runs page wired** — Live terminal console (`LiveOutputConsole` component) with auto-scroll, color-coded ERROR/WARN lines. WebSocket connection indicator (Live/Offline badge). WS data merged with REST data for seamless updates. Removed polling-based auto-refresh.
-- **Home page wired** — Pipeline status card shows running state with live output preview, or last run status (completed/failed). WebSocket connection indicator.
-- **dry_run passthrough fixed** — `main.py` now passes `dry_run=dry_run` to `run_orchestrator()`. Orchestrator respects both CLI flag and EngineMode.DRY_RUN.
-- **LinkedIn credentials set** — `LINKEDIN_ACCESS_TOKEN` and `LINKEDIN_ORG_URN` updated in `.env`.
-- **Test queue items cleaned** — All READY test/placeholder items set to SKIPPED to prevent accidental LinkedIn posting.
+Config (`config/connector.yaml`):
+- daily_limit: 25, commenter_priority: true
+- Search keywords: AI automation, supply chain, operations, demand planning, etc.
+- Title keywords: CTO, VP Engineering, Director of Operations, Head of AI, etc.
+- Voice config: ElevenLabs eleven_multilingual_v2, stability 0.5, similarity_boost 0.8
+- Rate limiting: 45-90s between requests, 120s between searches, 2h voice delay
 
-### Session 8 (2026-04-02): Phase 3 — Pipeline Execution + Data Layer
-- **Pipeline execution wired** — `POST /api/pipeline/run` now invokes `main.py` as async subprocess via `asyncio.create_subprocess_exec`. Full CLI flag passthrough (dry-run, skip-ingest, skip-generate, comments-only, replies-only). Stdout parsed for action counts. Concurrency guard prevents duplicate runs.
-- **Pipeline WebSocket** — `/api/pipeline/ws` endpoint polls every 5s when active, 30s idle. Sends active run status + recent runs to connected clients.
-- **Data layer consistency** — All 10 route files migrated: `SheetsClientDep` → `DataClientDep`, `sheets` param → `client`, `sheets.client` imports → `db.client` imports. analytics_service.py updated.
-- **History page fixed** — `history.py` now uses `client.get_system_log()` instead of broken `sheets.get_system_log()`
-- **Schedule config fixed** — `schedule.py` imports from `db.client` instead of `sheets.client`
+Core engine (`engagement/connector.py`):
+- `run_connector(max_requests, headless, dry_run, commenter_only, outbound_only)` — Main entry
+- `_auto_connect_commenters()` — Scan Kyle's posts for commenters, scrape profiles, LLM note, send request
+- `_outbound_search_connect()` — Search by keywords, score by title relevance, scrape, LLM note, send
+- `_score_candidates()` — Rank search results by title keyword match + mutual connections
+- `get_connector_status()` — API helper for dashboard
+- Connection tracker JSON at `tracking/linkedin/connections.json`
+- CLI: `python engagement/connector.py --commenter-connect --dry-run`
 
-### Session 7 (2026-04-02): Webhook Go-Live
-- Stopped PM2-managed `bartlett-webhooks` Node.js service that was occupying port 3847 (`pm2 stop bartlett-webhooks`)
-- Started LinkedIn webhook FastAPI service on port 3847 (PID-based, not PM2)
-- Verified cloudflared tunnel running (PID 2077) — `webhooks.bartlettlabs.io → localhost:3847`
-- Health check confirmed: `{"status":"ok","service":"linkedin-webhook"}`
-- **LinkedIn validated the webhook** — challenge-response passed, endpoint registered in Developer Portal
-- **LinkedIn API keys approved** — full programmatic access granted
+LLM functions (`llm/provider.py` — 2 new functions):
+- `generate_connection_note(profile_info, persona_system_prompt, context)` — <=300 char personalized note
+- `generate_voice_script(profile_info, persona_system_prompt)` — 75-150 word conversational voice script
 
-### Session 8 E2E Bugs Fixed (commit `2c669e9`)
-- `pipeline.py` _PROJECT_ROOT resolved to `api/` — needed 3 dirname levels, not 2
-- `engine.py` line 78 still referenced `sheets` instead of `client` (500 error)
-- `engine.py` was passing Sheet-style keys (`Mode`, `Phase`) to DB client expecting lowercase
-- `db/client.py` log() lacked `persona` positional arg and `details` kwarg — orchestrator/commenter/replier all use SheetsClient signature
-- `feeds.py` ValidCategory missing DB categories (`ai_automation`, `tech_news`, `research`, `dev_tools`)
-- `content_calendar.py` used nonexistent `w.day_of_week` — fixed to use `_is_day_match(w.days_of_week, day)`
+Voice outreach (`engagement/voice_outreach.py`):
+- `monitor_and_send_voice(headless, dry_run, max_messages)` — Check My Network, generate scripts, TTS, send DM
+- `_generate_audio(script, voice_config, output_path)` — ElevenLabs TTS with cloned voice
+- `test_voice_generation(text)` — Quick test of ElevenLabs integration
+- CLI: `python engagement/voice_outreach.py --dry-run` or `--test`
 
-### Pending
-- Skip browser actions in dry-run mode (orchestrator still launches Playwright for commenter/replier)
-- Safety filter false positives: `\brates\b` and `\bproprietary\b` triggering on legitimate AI content
-- Content generation verification (wait for new articles to be published, then verify ingest → summarize → generate → post quality)
-- Deploy to Coolify (production deployment behind reverse proxy)
+API routes (`api/routes/connector.py`):
+- GET /connector/status — Daily counts, budget, config summary
+- GET /connector/requests — Connection request history (filterable by source)
+- POST /connector/run — Trigger connector (commenter_only, outbound_only, dry_run)
+- GET /connector/acceptances — Pending voice follow-ups
+- GET /connector/voice-queue — Voice message queue (pending + sent)
+- POST /connector/voice-run — Trigger voice outreach
+- GET /connector/config — Full connector config
+- PUT /connector/config — Partial config update
 
-## Completed Work
+Dashboard (`dashboard/src/app/connections/page.tsx`):
+- Budget bar showing daily requests sent vs limit
+- 4 stat cards: sent today, from commenters, from outbound, all-time total
+- Quick action buttons: Connect Commenters, Outbound Search, Send Voice Messages, Dry Run
+- Search keyword badges from config
+- Tab 1: Connection Requests — filterable by source, expandable rows with note preview, profile links
+- Tab 2: Voice Messages — split view with pending follow-ups and sent messages, expandable scripts
 
-### Session 6 (2026-04-02): LinkedIn Webhook Service
+Orchestrator wiring (`scheduling/orchestrator.py`):
+- Steps 7-8 added: run_connector + monitor_and_send_voice after replying, before phantom heartbeats
+- Summary dict expanded with connections_sent and voice_messages counts
 
-**Architecture**: Separate FastAPI microservice on port 3847, behind Cloudflare tunnel (`webhooks.bartlettlabs.io → localhost:3847`). Shares `db/` module with main API.
+Other updates:
+- `requirements.txt` — Added `elevenlabs`
+- `.env.example` — Added ELEVENLABS_API_KEY, ELEVENLABS_VOICE_ID
+- `api/server.py` — Mounted connector router (17 total route modules)
+- `dashboard/src/lib/api.ts` — All connector types and fetch functions
+- `dashboard/src/app/layout.tsx` — Added Connections nav item with Link2 icon
 
-**New DB model — `WebhookEvent` (table 14, `db/models.py`):**
-- Fields: id, received_at, event_type, action, notification_id (unique), organization_urn, source_post_urn, generated_activity_urn, actor_urn, comment_text, raw_payload (JSONB), processed, queue_item_id
-- Indexes on: received_at, action, notification_id, processed
+**Build verified:** `next build` compiled successfully, 22 pages (was 21).
 
-**Alembic migration**: `a7b2c9d3e4f1_add_webhook_events_table.py` — ran successfully against local Postgres.
+### Session 13 (2026-04-04): Dashboard Gap Analysis + New Pages
 
-**DatabaseClient extensions (`db/client.py`) — 4 new methods:**
-- `create_webhook_event(event_data)` — insert event, return ID
-- `get_webhook_event_by_notification_id(notification_id)` — dedup lookup
-- `get_webhook_events(limit, offset, action_filter, processed)` — list with filtering, returns (events, total)
-- `update_webhook_event_queue_link(event_id, queue_item_id)` — link event to auto-queued reply
+**What was built:**
 
-**Webhook service (`webhook/server.py`):**
-- `GET /` — LinkedIn challenge-response validation (HMAC-SHA256 of challengeCode with client secret)
-- `POST /` — Receive batched social action notifications. Deduplicates by notification_id. Stores all events. Auto-queues reply drafts for COMMENT actions. Logs to system_logs audit trail.
-- `GET /health` — service health check
-- Returns 200 within 3 seconds (LinkedIn requirement)
+Backend API routes (3 new):
+- `api/routes/heartbeat.py` — GET /heartbeat/status, GET/PUT /heartbeat/schedule/{name}, POST /heartbeat/run/{name}, POST /heartbeat/run-all
+- `api/routes/killswitch.py` — GET /kill-switch, POST /kill-switch/activate, POST /kill-switch/deactivate
+- `api/routes/leads.py` — GET /leads, PUT /leads/{name}, DELETE /leads/{name}
+- All 3 mounted in `api/server.py`
 
-**Environment & infrastructure:**
-- `.env` — added `LINKEDIN_ORG_URN`, `WEBHOOK_PORT=3847` (client secret already existed)
-- `start.sh` — process manager script: `./start.sh` (both), `./start.sh api`, `./start.sh webhook`, `./start.sh stop`
+Dashboard API client (`dashboard/src/lib/api.ts`):
+- Added: getHeartbeatStatus, getPersonaSchedule, updatePersonaSchedule, triggerHeartbeat, triggerAllHeartbeats
+- Added: getKillSwitch, activateKillSwitch, deactivateKillSwitch
+- Added: getLeads, updateLead, deleteLead
+- Added: getPersonaDetail, getPipelineRun (previously missing)
 
-**E2E test results (all 5 passed):**
-1. Health check — `{"status":"ok","service":"linkedin-webhook"}`
-2. Challenge validation — HMAC-SHA256 response generated correctly
-3. COMMENT ingestion — event stored, reply auto-queued to outbound_queue (status=READY)
-4. Deduplication — same notificationId rejected (duplicates=1, created=0)
-5. LIKE action — event stored, no auto-queue (queued=0)
+Dashboard pages (3 new):
+- `/personas/scheduler` — Per-persona heartbeat control panel with kill switch, schedule editing, trigger controls, daily stats, session status, active hours. Each persona has color-coded card with status dot, probability bars, stat progress bars.
+- `/personas/activity` — Per-persona engagement analytics with 30d/14d/7d toggle, total stats summary, stacked activity bars, recent activity table. Tabs for breakdown vs recent.
+- `/leads` — Lead tracker with score badges, status management (new/reviewing/qualified/contacted/dismissed/archived), detail dialog with notes, source link, delete. Filterable by status.
+- Navigation updated in `layout.tsx` with new "Personas" section (Scheduler, Activity, Leads)
 
-**DB verification:** webhook_events populated, outbound_queue has auto-queued reply with notes linking to webhook event, system_logs has audit entries with module=webhook.
+**Build verified:** `next build` compiled successfully, 21 pages generated (was 18).
 
-### Session 5 (2026-04-02): Fullstack Guardian Security Audit
+**Gap analysis completed:**
+- Found 4 Python modules with NO API routes (heartbeat, leads, phantom, kill_switch) — 3 now have routes
+- Found 2 backend endpoints not consumed by frontend (persona detail, pipeline run detail) — now have api.ts functions
+- `engagement/phantom.py` still CLI-only (no dedicated API route — uses heartbeat system instead)
 
-**Audit scope**: All Phase 2 code — 3 API route files, 4 frontend pages, deps layer, server config.
+### Session 12 (2026-04-04): Per-Persona Heartbeat Schedules
 
-**CRITICAL fixes:**
-- `deps.py` — Replaced timing-unsafe `!=` with `hmac.compare_digest()` for API key comparison. Added security logging for auth failures.
-- `pipeline.py` — Added active run concurrency guard on `POST /api/pipeline/run` — rejects with 409 if a run is already running/pending. Prevents DoS via unlimited pipeline triggers.
-- `feeds.py` — Added SSRF protection: `_validate_feed_url()` rejects URLs pointing to localhost, private IPs (127.x, 10.x, 172.16-31.x, 192.168.x, 169.254.x), and non-HTTP schemes.
+**What was built:**
+- `scheduling/heartbeat.py` — Per-persona autonomous runner with CLI
+- `engagement/tracker.py` — `get_daily_stats(persona=...)` now supports per-persona filtering
+- `config/personas.json` — Added `schedule` block to all 6 phantoms + `linkedin_url` for MainUser
+- `scheduler.py` — Phantom heartbeat loop runs alongside existing orchestrator
 
-**HIGH fixes:**
-- `queue.py` — Added `Literal` type validation for status (5 valid values), persona (7 valid values), and action_type (4 valid values). Invalid enum values now rejected with 422.
-- `queue.py`, `pipeline.py` — Bounded `limit` (1-500) and `offset` (>=0) with `Query(ge=, le=)` on all paginated GET endpoints.
-- `queue.py`, `pipeline.py`, `feeds.py` — Replaced `{"status": "not_found"}` with 200 → proper `HTTPException(404)` for not-found responses.
+**How it works:**
+Each phantom persona runs independently on their own schedule. Every cycle:
+1. Checks `active_hours` (timezone-aware) — skips if outside window
+2. Checks for active browser session — skips if no saved cookies
+3. Comments on feed posts via `run_commenter(persona_name=...)`
+4. Randomly comments on Kyle's posts via `run_phantom_on_post()` (30% chance for Marcus)
+5. Randomly generates + posts own content via LLM + `post_single()` (15% chance for Marcus)
 
-**MEDIUM fixes:**
-- `server.py` — Tightened CORS from `allow_methods=["*"], allow_headers=["*"]` → explicit whitelist `["GET","POST","PUT","DELETE","OPTIONS"]` and `["Content-Type","X-Api-Key","Authorization"]`.
-- `feeds.py` — Added `Field(min_length=1, max_length=200)` on name, `Field(max_length=2000)` on URL. Added `Literal` types for feed type (rss/atom/json/scraper) and category (6 valid values + empty).
-- `queue.py` — Added `Field(max_length=10000)` on draft_text, `Field(max_length=2000)` on notes/target_url.
-- `feeds/page.tsx` — Added `AlertDialog` delete confirmation before removing feed sources. Installed `shadcn alert-dialog` component.
+**Schedule config per persona (in personas.json):**
+```json
+"schedule": {
+  "comments_per_cycle": 2,      // feed comments per heartbeat
+  "post_chance_per_cycle": 0.15, // probability of making a post
+  "kyle_comment_chance": 0.3,    // probability of commenting on Kyle
+  "cycle_interval_minutes": 60   // how often heartbeat runs
+}
+```
 
-**Security logging added** to all mutation endpoints (create/update/delete) across queue.py, pipeline.py, feeds.py.
+**Dry-run verified:** Marcus Chen detected as only eligible persona (only one with active session), generated comment on Austin Richard's feed post, quality score passed, per-persona daily stats working (1/3 comments used).
 
-**Build verified:** `next build` compiles clean — 18 routes, 0 errors.
+**CLI:**
+- `venv/bin/python3 scheduling/heartbeat.py --persona "The Visionary Advisor" --dry-run`
+- `venv/bin/python3 scheduling/heartbeat.py --all --dry-run`
+- `venv/bin/python3 scheduling/heartbeat.py --all` (live)
 
-### Session 4 (2026-04-02): Phase 2 — Dashboard Enhancements
+**Safety:** Only personas with active browser sessions participate. Other 5 phantoms are safely off (no sessions). Kill switch checked between every step.
 
-**Backend — DatabaseClient extensions (db/client.py):**
-- `get_system_log()` — paginated with action/module/date filtering, returns (entries, total)
-- `get_error_log()` — filtered for FAIL results, paginated
-- `get_queue_items()` — all items with status filter + pagination (not just READY)
-- `update_queue_item()` — update any fields by ID (approve/reject/edit)
-- `get_queue_stats()` — counts grouped by status
-- `update_schedule_config()` — was missing, called by schedule.py route
-- `create_feed_source()`, `update_feed_source()`, `delete_feed_source()` — full CRUD
+### Session 11 (2026-04-03): Replier E2E + Phantom Persona Kickoff
 
-**Backend — New API Routes:**
-- `api/routes/queue.py` — GET /api/queue (list+filter), GET /api/queue/stats, PUT /api/queue/{id}, POST /api/queue
-- `api/routes/pipeline.py` — POST /api/pipeline/run (trigger), GET /api/pipeline/runs, GET /api/pipeline/runs/{id}, GET /api/pipeline/errors
-- `api/routes/feeds.py` — GET/POST/PUT/DELETE /api/feeds
-- Registered all 3 new routers in `api/server.py`
+**Replier fully tested and live:**
+- 5 iterative test/fix cycles to get replier working end-to-end
+- Successfully posted 1 live reply to Brian Kerrigan on LinkedIn
+- Bugs fixed: LLM proxy model detection, activity page selectors, comment author extraction, self-comment filtering, dry-run tracker isolation, safety filter false positives
 
-**Frontend — New Dashboard Pages:**
-- `/queue` — Queue management: status filter tabs with counts, approve/reject/edit actions, create dialog, pagination. Status-driven color coding with live pulse for IN_PROGRESS items.
-- `/runs` — Pipeline runs: "Run Now" trigger with dry-run toggle, run history with expandable details, auto-refresh for active runs, action stat pills (posts/comments/replies/phantom).
-- `/errors` — Error dashboard: aggregated from pipeline_runs + system_logs, severity indicators (critical/error/warning with pulsing dots), module grouping, expandable error details, All/Pipeline/System tabs.
-- `/config/feeds` — Feed management: CRUD with active/inactive toggle, category badges, type selector, last-fetched timestamps, 2-column card grid.
+**Commenter fix committed:**
+- `8cf6fb7` — 404 detection + expanded target pool in commenter
 
-**Frontend — Navigation Update (layout.tsx):**
-- Added "Operations" section divider with Queue, Pipeline Runs, Errors
-- Added Feeds under Configuration section
-- 4 new Lucide icons imported (ListTodo, Play, AlertTriangle, Rss)
+**LLM provider fixes:**
+- Proxy auto-detection: when `ANTHROPIC_BASE_URL` contains "ai-router" or "litellm", use `vertex_ai/claude-opus-4-6` model format instead of `claude-opus-4-6-20250610`
+- OpenAI GPT-5.2: `max_tokens` → `max_completion_tokens` (API breaking change)
 
-**Frontend — API Client (api.ts):**
-- Added QueueItem, QueueResponse, QueueStats types + getQueue, getQueueStats, updateQueueItem, createQueueItem
-- Added PipelineRun, PipelineRunsResponse, PipelineError, ErrorsResponse types + getPipelineRuns, triggerPipelineRun, getPipelineErrors
-- Added FeedSource, FeedsResponse types + getFeeds, createFeed, updateFeed, deleteFeed
+**Safety filter relaxed:**
+- `\bconsulting\b` was too broad, changed to `\b(my|our|I offer|offering)\s+consulting\b`
 
-**Build verified:** `next build` compiles clean — 18 routes, 0 errors.
+**Phantom persona plan approved but NOT started:**
+- Marcus Chen ("The Visionary Advisor") has completed LinkedIn warmup
+- Credentials provided: Email `Marcus.Chen26@icloud.com`, Password `Bartdog6969!` (user will change later)
+- Session dir: `~/.ai-linkedin-machine/sessions/the_visionary_advisor/`
 
-### Session 3 (2026-04-02): Phase 0 + Phase 1
+### Git Commits This Session
+- `8cf6fb7` fix: add 404 detection and expand target pool in commenter
+- `ed21fc6` fix: LLM proxy model detection, replier activity page support, comment author extraction
+- `55914b7` fix: relax consulting safety filter + skip tracker persistence on dry runs
 
-**Phase 0 — Fix What Exists (all 5 tasks):**
-- Fixed LLM config: Replaced broken Bedrock SDK with OpenAI-compatible client for Anker AI Router (`llm/provider.py`). 4-tier fallback: AI Router → Direct Anthropic → OpenAI → Templates.
-- Updated Chrome UA from 124 → 131 in `browser/context_manager.py`
-- Verified LinkedIn ARIA selectors still valid (last checked 2026-02-08)
-- Verified Google Sheets connection working
-- Confirmed dry-run pipeline completes
+## Next Steps — SPECIFIC (Pick up here)
 
-**Phase 1 — Replace Google Sheets with Postgres (all 6 tasks):**
-- 1.1: Added sqlalchemy, asyncpg, psycopg2-binary, alembic to `requirements.txt`
-- 1.2: Created `db/models.py` — 13 SQLAlchemy 2.0 models with indexes
-- 1.3: Created Alembic infrastructure, ran initial migration (13 tables in local Postgres)
-- 1.4: Created `db/client.py` — DatabaseClient mirrors every SheetsClient method. Tested all 12 methods against live DB.
-- 1.5: Created `db/seed.py` — imported 662 rows from Google Sheets (180 targets, 178 content bank, 146 reposts, 88 safety terms, 59 rules, 8 feeds, etc.)
-- 1.6: Swapped data layer — `api/deps.py`, `main.py`, `scheduler.py`, `scheduling/orchestrator.py`, `api/services/analytics_service.py` all use `DATA_BACKEND=postgres` toggle. All imports verified passing.
+### Step 1: Clone Kyle's voice in ElevenLabs
+- Go to ElevenLabs dashboard → Voice Cloning → upload samples of Kyle speaking
+- Get the voice_id and set `ELEVENLABS_VOICE_ID` in `.env`
+- Test: `venv/bin/python3 engagement/voice_outreach.py --test`
 
-### Previous Sessions
-- Session 2 (2026-03-04): Dashboard build, CRUD forms, Docker verified
-- Session 1 (prior): FastAPI backend, Next.js dashboard, 12 pages
+### Step 2: Dry-run the connector end-to-end
+- `venv/bin/python3 engagement/connector.py --commenter-connect --dry-run`
+- `venv/bin/python3 engagement/connector.py --outbound --dry-run`
+- Verify: profile scraping works, LLM notes are personalized and under 300 chars, safety filter passes
 
-## Key Files Created/Modified
+### Step 3: Live test — single connection request
+- `venv/bin/python3 engagement/connector.py --commenter-connect --max 1`
+- Verify: connection request actually sent on LinkedIn with personalized note
 
-### New Files (Webhook Service):
-- `webhook/__init__.py` — module init
-- `webhook/server.py` — FastAPI webhook service (GET challenge-response, POST notification ingestion, health check)
-- `db/alembic/versions/a7b2c9d3e4f1_add_webhook_events_table.py` — migration for table 14
-- `start.sh` — process manager script (api/webhook/stop/all)
+### Step 4: Test voice outreach
+- `venv/bin/python3 engagement/voice_outreach.py --dry-run`
+- Verify: script generation, ElevenLabs audio output, DM sending flow
 
-### Modified Files (Webhook Service):
-- `db/models.py` — Added `WebhookEvent` model (table 14) with notification_id unique constraint
-- `db/client.py` — Added 4 webhook methods (create_webhook_event, get_webhook_event_by_notification_id, get_webhook_events, update_webhook_event_queue_link)
-- `.env` — Added `LINKEDIN_ORG_URN`, `WEBHOOK_PORT=3847`
+### Step 5: Login remaining phantom personas (5 of 6)
+- Dr. Priya Nair, Jake Morrison, Rebecca Torres, Alex Kim, David Okafor
+- `venv/bin/python3 scripts/login.py "<persona_name>"` for each
 
-### New Files (Phase 2):
-- `api/routes/queue.py` — Queue CRUD API (GET/POST/PUT with status filtering)
-- `api/routes/pipeline.py` — Pipeline trigger + run history + error aggregation API
-- `api/routes/feeds.py` — Feed source CRUD API
-- `dashboard/src/app/queue/page.tsx` — Queue management page (approve/reject/edit, status tabs, stats)
-- `dashboard/src/app/runs/page.tsx` — Pipeline runs page (trigger, history, auto-refresh)
-- `dashboard/src/app/errors/page.tsx` — Error dashboard (pipeline + system errors, severity, tabs)
-- `dashboard/src/app/config/feeds/page.tsx` — Feed management page (CRUD, active toggle, categories)
+### Step 6: Deploy to Coolify (production)
+- Docker compose with FastAPI + Next.js + Postgres
+- Reverse proxy, SSL, environment variables
 
-### Modified Files (Phase 2):
-- `db/client.py` — Added 8 new methods (get_system_log, get_error_log, get_queue_items, update_queue_item, get_queue_stats, update_schedule_config, create/update/delete_feed_source)
-- `api/server.py` — Registered queue, pipeline, feeds routers
-- `dashboard/src/app/layout.tsx` — Added Operations nav section (Queue, Runs, Errors) + Feeds under Config
-- `dashboard/src/lib/api.ts` — Added Queue/Pipeline/Feeds/Errors types + API functions
+## Key Files Modified This Session (Session 14)
 
-### New Files (Phase 1):
-- `db/__init__.py` — module init
-- `db/engine.py` — sync + async SQLAlchemy engines, dotenv loading
-- `db/models.py` — 13 tables: system_logs, outbound_queue, engine_control, schedule_configs, safety_terms, reply_rules, comment_templates, comment_targets, content_bank, repost_bank, activity_windows, feed_sources, pipeline_runs
-- `db/client.py` — DatabaseClient with full SheetsClient API compatibility + TAB_* constants + pipeline_runs + feed_sources methods
-- `db/seed.py` — one-time Sheets → Postgres migration tool
-- `db/alembic.ini`, `db/alembic/env.py`, `db/alembic/versions/304cd6261f7a_initial_schema_13_tables.py`
+| File | Change |
+|------|--------|
+| `browser/linkedin_actions.py` | 5 new async functions for connection automation (profile scraping, connect, search, DM) |
+| `config/connector.yaml` | NEW — Search keywords, title keywords, voice config, rate limiting |
+| `engagement/connector.py` | NEW — Auto-connection engine (commenter + outbound search) |
+| `engagement/voice_outreach.py` | NEW — ElevenLabs voice follow-up for accepted connections |
+| `llm/provider.py` | 2 new functions: generate_connection_note, generate_voice_script |
+| `api/routes/connector.py` | NEW — 8 endpoints for connector status, requests, triggers, voice queue, config |
+| `api/server.py` | Mounted connector router (17 total route modules) |
+| `dashboard/src/app/connections/page.tsx` | NEW — Connections dashboard with budget bar, request list, voice queue |
+| `dashboard/src/lib/api.ts` | Connector types and fetch functions |
+| `dashboard/src/app/layout.tsx` | Added Connections nav item |
+| `scheduling/orchestrator.py` | Steps 7-8: connector + voice outreach wired into orchestration cycle |
+| `requirements.txt` | Added elevenlabs |
+| `.env.example` | Added ELEVENLABS_API_KEY, ELEVENLABS_VOICE_ID |
 
-### Modified Files:
-- `.env` — added DATABASE_URL, DATA_BACKEND, AI_ROUTER_* vars
-- `requirements.txt` — added DB dependencies
-- `llm/provider.py` — rewritten for Anker AI Router (OpenAI-compatible)
-- `browser/context_manager.py` — Chrome UA 131
-- `api/deps.py` — DATA_BACKEND toggle, returns DatabaseClient or SheetsClient
-- `main.py`, `scheduler.py`, `scheduling/orchestrator.py` — dynamic backend factory
-- `api/services/analytics_service.py` — removed SheetsClient type annotation
+## Marcus Chen Reference
 
-## Database State
-- **Local Postgres**: `postgresql://kylebartlett@localhost:5432/linkedin_machine`
-- **14 tables** (13 original + webhook_events), all populated via seed script
-- **EngineControl**: mode=Live, phase=stealth
-- **662 rows** total across original tables
-
-## Webhook Service
-- **Endpoint**: `webhooks.bartlettlabs.io` → Cloudflare tunnel → `localhost:3847`
-- **LinkedIn Client ID**: `863cehzc8gq3eb` (Bartlett Labs)
-- **Challenge validation**: HMAC-SHA256 of challengeCode with LINKEDIN_CLIENT_SECRET
-- **Auto-queue**: COMMENT actions create outbound_queue entries (status=READY, type=reply)
-- **Deduplication**: notification_id unique constraint prevents duplicate processing
-- **Note**: Port 3847 currently occupied by existing Node.js service — stop that before starting webhook service, or update Cloudflare tunnel to point to webhook service
-
-## Next Steps
-
-### Immediate: End-to-End Verification
-1. **Start FastAPI server** — Verify all route modules load, no import errors
-2. **Start Next.js dashboard** — Verify all 18 pages compile and load
-3. **Test CRUD operations** — Queue, feeds, pipeline runs, engine control
-4. **Pipeline dry run** — Full flow: ingest → summarize → generate → verify logs in system_logs table
-
-### After E2E:
-1. **Update LinkedIn credentials** — `LINKEDIN_ACCESS_TOKEN` and `LINKEDIN_ORG_URN` in `.env` (currently placeholders)
-2. **Deploy to Coolify** — Production deployment of dashboard + API behind reverse proxy
-3. **Wire dashboard WebSocket** — Connect runs page and home page to pipeline WebSocket for real-time updates
+- **Persona name in code**: `"The Visionary Advisor"`
+- **Display name**: `Marcus Chen`
+- **Voice**: Confident, forward-looking, high-energy but not hype. 2-4 sentences, punchy.
+- **Signature phrases**: "Here's the thing nobody's talking about", "The real unlock isn't..."
+- **Engagement rules**: Triggers on AI strategy, startup ops, tech leadership. Debates with Jake Morrison (skeptic vs visionary). Agrees with David Okafor (ROI alignment).
+- **System prompt**: Full backstory — 15yr career, 3 exits, fractional CTO, angel investor
+- **Config location**: `config/personas.json` (search for "The Visionary Advisor")
+- **Session dir**: `~/.ai-linkedin-machine/sessions/the_visionary_advisor/`
+- **Browser context**: `PersonaContext("The Visionary Advisor", headless=False)`
 
 ## Architecture Reference
 - **Data Layer**: `db/` module (Postgres via SQLAlchemy 2.0). Toggle: `DATA_BACKEND=postgres|sheets`
-- **API**: FastAPI at `api/server.py`, deps at `api/deps.py` (returns DatabaseClient)
+- **API**: FastAPI at `api/server.py`
 - **Dashboard**: Next.js 16 at `dashboard/`
-- **Pipeline**: `main.py` → orchestrator → commenter/replier/poster (all use data client)
-- **LLM**: Anker AI Router (OpenAI-compatible) at `llm/provider.py`
+- **Pipeline**: `main.py` → orchestrator → commenter/replier/poster
+- **LLM**: Claude Opus 4.6 via ai-router proxy at `llm/provider.py`
 - **Browser**: Playwright with stealth at `browser/`
+- **Personas**: `config/personas.json` (7 total: 1 MainUser + 6 phantoms)
