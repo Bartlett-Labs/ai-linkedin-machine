@@ -20,19 +20,19 @@ struct AlertsListView: View {
                         ForEach(vm.alerts) { alert in
                             AlertRow(alert: alert)
                                 .listRowBackground(Color.surface1)
-                                .listRowSeparatorTint(.appBorder)
+                                .listRowSeparatorTint(Color.appBorder)
                                 .swipeActions(edge: .trailing) {
                                     Button("Dismiss") {
                                         Task { await vm.dismiss(alert) }
                                     }
-                                    .tint(.textMuted)
+                                    .tint(Color.textMuted)
                                 }
                                 .swipeActions(edge: .leading) {
                                     if !alert.responded {
                                         Button("Responded") {
                                             Task { await vm.markResponded(alert) }
                                         }
-                                        .tint(.success)
+                                        .tint(Color.success)
                                     }
                                 }
                         }

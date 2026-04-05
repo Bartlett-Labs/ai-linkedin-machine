@@ -36,7 +36,7 @@ struct ContentView: View {
                 ConfigRootView()
             }
         }
-        .tint(.accent)
+        .tint(Color.accent)
     }
 }
 

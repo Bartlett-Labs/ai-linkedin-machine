@@ -468,7 +468,7 @@ struct DashboardView: View {
                 HStack(spacing: 3) {
                     ProgressView()
                         .scaleEffect(0.5)
-                        .tint(.accent)
+                        .tint(Color.accent)
                     Text("RUNNING")
                         .font(.system(size: 9, weight: .bold, design: .monospaced))
                         .foregroundStyle(Color.accent)

@@ -34,10 +34,10 @@ struct PersonaSchedulerView: View {
                 Text("Run All Personas")
                     .font(.system(size: 14, weight: .medium))
             }
-            .foregroundStyle(.appBackground)
+            .foregroundStyle(Color.appBackground)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
-            .background(.accent)
+            .background(Color.accent)
             .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radius.control))
         }
     }

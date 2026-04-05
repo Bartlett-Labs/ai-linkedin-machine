@@ -29,7 +29,7 @@ struct TemplatesConfigView: View {
                 }
                 .padding(.vertical, 4)
                 .listRowBackground(Color.surface1)
-                .listRowSeparatorTint(.appBorder)
+                .listRowSeparatorTint(Color.appBorder)
             }
         }
         .listStyle(.plain)

@@ -48,7 +48,7 @@ struct RulesConfigView: View {
                     StatusBadge(text: rule.action, color: actionColor(rule.action))
                 }
                 .listRowBackground(Color.surface1)
-                .listRowSeparatorTint(.appBorder)
+                .listRowSeparatorTint(Color.appBorder)
             }
         }
         .listStyle(.plain)
@@ -66,7 +66,7 @@ struct RulesConfigView: View {
                     StatusBadge(text: term.response, color: term.response == "BLOCK" ?Color.danger : Color.warning)
                 }
                 .listRowBackground(Color.surface1)
-                .listRowSeparatorTint(.appBorder)
+                .listRowSeparatorTint(Color.appBorder)
             }
         }
         .listStyle(.plain)

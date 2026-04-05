@@ -6,7 +6,7 @@ struct LoadingView: View {
     var body: some View {
         VStack(spacing: DesignTokens.Spacing.md) {
             ProgressView()
-                .tint(.accent)
+                .tint(Color.accent)
             Text(message)
                 .font(.caption)
                 .foregroundStyle(Color.textMuted)
@@ -52,7 +52,7 @@ struct AsyncContentView<T, Content: View>: View {
                         Task { await retry() }
                     }
                     .buttonStyle(.borderedProminent)
-                    .tint(.accent)
+                    .tint(Color.accent)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let data {

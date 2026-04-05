@@ -62,7 +62,7 @@ struct FeedsConfigView: View {
         }
         .padding(.vertical, 4)
         .listRowBackground(Color.surface1)
-        .listRowSeparatorTint(.appBorder)
+        .listRowSeparatorTint(Color.appBorder)
         .opacity(feed.active ? 1.0 : 0.6)
     }
 }

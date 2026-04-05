@@ -98,16 +98,16 @@ struct QueueListView: View {
                     ForEach(vm.items) { item in
                         QueueItemRow(item: item)
                             .listRowBackground(Color.surface1)
-                            .listRowSeparatorTint(.appBorder)
+                            .listRowSeparatorTint(Color.appBorder)
                             .contentShape(Rectangle())
                             .onTapGesture { selectedItem = item }
                             .swipeActions(edge: .trailing) {
                                 Button("Reject") { Task { await vm.reject(item) } }
-                                    .tint(.danger)
+                                    .tint(Color.danger)
                             }
                             .swipeActions(edge: .leading) {
                                 Button("Approve") { Task { await vm.approve(item) } }
-                                    .tint(.success)
+                                    .tint(Color.success)
                             }
                     }
                 }
@@ -197,7 +197,7 @@ struct QueueDetailView: View {
                             .scrollContentBackground(.hidden)
                             .frame(minHeight: 200)
                             .padding(DesignTokens.Spacing.sm)
-                            .background(.surface2)
+                            .background(Color.surface2)
                             .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radius.control))
                             .overlay(
                                 RoundedRectangle(cornerRadius: DesignTokens.Radius.control)
@@ -248,7 +248,7 @@ struct QueueDetailView: View {
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
-                            .background(.danger)
+                            .background(Color.danger)
                             .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radius.control))
                     }
 
@@ -260,15 +260,15 @@ struct QueueDetailView: View {
                     } label: {
                         Text("Approve")
                             .font(.system(size: 14, weight: .medium))
-                            .foregroundStyle(.appBackground)
+                            .foregroundStyle(Color.appBackground)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
-                            .background(.success)
+                            .background(Color.success)
                             .clipShape(RoundedRectangle(cornerRadius: DesignTokens.Radius.control))
                     }
                 }
                 .padding(DesignTokens.Spacing.lg)
-                .background(.surface1)
+                .background(Color.surface1)
             }
         }
     }

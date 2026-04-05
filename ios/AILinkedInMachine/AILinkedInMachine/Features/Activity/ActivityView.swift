@@ -69,7 +69,7 @@ struct ActivityView: View {
                 }
             }
         }
-        .background(.surface1)
+        .background(Color.surface1)
         .overlay(alignment: .bottom) {
             Rectangle().fill(Color.appBorder).frame(height: 1)
         }
@@ -203,7 +203,7 @@ struct ActivityView: View {
                         }
                         .padding(.vertical, 2)
                         .listRowBackground(Color.surface1)
-                        .listRowSeparatorTint(.appBorder)
+                        .listRowSeparatorTint(Color.appBorder)
                     }
                 }
                 .listStyle(.plain)
@@ -252,7 +252,7 @@ struct ActivityView: View {
                         }
                         .padding(.vertical, 4)
                         .listRowBackground(Color.surface1)
-                        .listRowSeparatorTint(.appBorder)
+                        .listRowSeparatorTint(Color.appBorder)
                     }
                 }
                 .listStyle(.plain)
@@ -334,7 +334,7 @@ struct ActivityView: View {
         }
         .padding(.vertical, 2)
         .listRowBackground(Color.surface1)
-        .listRowSeparatorTint(.appBorder)
+        .listRowSeparatorTint(Color.appBorder)
     }
 }
 
