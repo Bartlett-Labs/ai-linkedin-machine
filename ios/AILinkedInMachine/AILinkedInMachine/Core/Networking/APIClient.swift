@@ -9,7 +9,7 @@ final class APIClient: @unchecked Sendable {
     private let decoder: JSONDecoder
     private let encoder: JSONEncoder
 
-    init(baseURL: String = "http://u4scwgg4skcocg8gcw0cgkco.149.28.249.119.sslip.io", apiKey: String = "") {
+    init(baseURL: String = "https://u4scwgg4skcocg8gcw0cgkco.149.28.249.119.sslip.io", apiKey: String = "") {
         self.baseURL = baseURL
         self.apiKey = apiKey
         self.session = URLSession.shared
