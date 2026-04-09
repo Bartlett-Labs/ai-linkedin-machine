@@ -83,7 +83,7 @@ struct ConfigRootView: View {
                 Text("API Server")
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(Color.textPrimary)
-                TextField("https://u4scwgg4skcocg8gcw0cgkco.149.28.249.119.sslip.io", text: $serverURL)
+                TextField("https://linkedin-api.bartlettlabs.io", text: $serverURL)
                     .font(.system(size: 12, design: .monospaced))
                     .textFieldStyle(.roundedBorder)
                     .onAppear { serverURL = apiClient.baseURL }
