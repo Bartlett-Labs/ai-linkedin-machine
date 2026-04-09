@@ -78,10 +78,10 @@ struct PersonaStatusCard: View {
                 if let schedule = persona.schedule {
                     HStack(spacing: DesignTokens.Spacing.md) {
                         if let cpc = schedule["comments_per_cycle"] {
-                            detailPill("Comments/Cycle", value: "\(cpc.value)")
+                            detailPill("Comments/Cycle", value: "\(cpc)")
                         }
                         if let interval = schedule["cycle_interval_minutes"] {
-                            detailPill("Interval", value: "\(interval.value)m")
+                            detailPill("Interval", value: "\(interval)m")
                         }
                     }
                 }

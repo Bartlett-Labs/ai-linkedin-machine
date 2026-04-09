@@ -47,6 +47,29 @@ extension Color {
     static let dangerGlow       = Color(hex: "EF4444")
 }
 
+// MARK: - ShapeStyle convenience (allows bare .accent, .danger, etc.)
+
+extension ShapeStyle where Self == Color {
+    static var accent: Color { Color.accent }
+    static var accentHover: Color { Color.accentHover }
+    static var accentPressed: Color { Color.accentPressed }
+    static var accentDeep: Color { Color.accentDeep }
+    static var success: Color { Color.success }
+    static var successDeep: Color { Color.successDeep }
+    static var warning: Color { Color.warning }
+    static var warningDeep: Color { Color.warningDeep }
+    static var danger: Color { Color.danger }
+    static var dangerDeep: Color { Color.dangerDeep }
+    static var appBackground: Color { Color.appBackground }
+    static var surface1: Color { Color.surface1 }
+    static var surface2: Color { Color.surface2 }
+    static var surface3: Color { Color.surface3 }
+    static var appBorder: Color { Color.appBorder }
+    static var textPrimary: Color { Color.textPrimary }
+    static var textSecondary: Color { Color.textSecondary }
+    static var textMuted: Color { Color.textMuted }
+}
+
 // MARK: - Gradient Presets
 
 extension LinearGradient {

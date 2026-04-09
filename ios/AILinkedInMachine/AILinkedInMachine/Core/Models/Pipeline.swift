@@ -60,38 +60,46 @@ struct PipelineTriggerResponse: Codable, Sendable {
 }
 
 // Generic JSON value wrapper for untyped dictionaries
-struct AnyCodable: Codable, Sendable {
-    let value: Any
+enum AnyCodable: Codable, Sendable, CustomStringConvertible {
+    case string(String)
+    case int(Int)
+    case double(Double)
+    case bool(Bool)
+    case null
 
-    init(_ value: Any) {
-        self.value = value
+    var description: String {
+        switch self {
+        case .string(let v): v
+        case .int(let v): String(v)
+        case .double(let v): String(v)
+        case .bool(let v): String(v)
+        case .null: "null"
+        }
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         if let string = try? container.decode(String.self) {
-            value = string
+            self = .string(string)
         } else if let int = try? container.decode(Int.self) {
-            value = int
+            self = .int(int)
         } else if let double = try? container.decode(Double.self) {
-            value = double
+            self = .double(double)
         } else if let bool = try? container.decode(Bool.self) {
-            value = bool
+            self = .bool(bool)
         } else {
-            value = ""
+            self = .null
         }
     }
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
-        if let string = value as? String {
-            try container.encode(string)
-        } else if let int = value as? Int {
-            try container.encode(int)
-        } else if let double = value as? Double {
-            try container.encode(double)
-        } else if let bool = value as? Bool {
-            try container.encode(bool)
+        switch self {
+        case .string(let v): try container.encode(v)
+        case .int(let v): try container.encode(v)
+        case .double(let v): try container.encode(v)
+        case .bool(let v): try container.encode(v)
+        case .null: try container.encodeNil()
         }
     }
 }

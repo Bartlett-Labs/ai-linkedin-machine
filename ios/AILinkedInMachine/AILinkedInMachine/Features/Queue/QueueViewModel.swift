@@ -1,6 +1,6 @@
 import SwiftUI
 
-@Observable
+@MainActor @Observable
 final class QueueViewModel {
     var items: [QueueItem] = []
     var stats: QueueStats?
@@ -15,7 +15,6 @@ final class QueueViewModel {
         self.apiClient = client
     }
 
-    @MainActor
     func load() async {
         guard let api = apiClient else { return }
         isLoading = true
@@ -36,7 +35,6 @@ final class QueueViewModel {
         isLoading = false
     }
 
-    @MainActor
     func approve(_ item: QueueItem) async {
         guard let api = apiClient else { return }
         do {
@@ -47,7 +45,6 @@ final class QueueViewModel {
         }
     }
 
-    @MainActor
     func reject(_ item: QueueItem) async {
         guard let api = apiClient else { return }
         do {
@@ -58,7 +55,6 @@ final class QueueViewModel {
         }
     }
 
-    @MainActor
     func updateDraft(_ item: QueueItem, newText: String) async {
         guard let api = apiClient else { return }
         do {
