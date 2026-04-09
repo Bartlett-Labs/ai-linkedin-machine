@@ -81,19 +81,19 @@ struct EngineConfigView: View {
                 Divider().overlay(Color.appBorder)
 
                 toggleItem("Main User Posting", isOn: eng.mainUserPosting) {
-                    try? await apiClient.updateEngine(EngineUpdate(mainUserPosting: !eng.mainUserPosting))
+                    _ = try? await apiClient.updateEngine(EngineUpdate(mainUserPosting: !eng.mainUserPosting))
                     await load()
                 }
                 toggleItem("Phantom Engagement", isOn: eng.phantomEngagement) {
-                    try? await apiClient.updateEngine(EngineUpdate(phantomEngagement: !eng.phantomEngagement))
+                    _ = try? await apiClient.updateEngine(EngineUpdate(phantomEngagement: !eng.phantomEngagement))
                     await load()
                 }
                 toggleItem("Commenting", isOn: eng.commenting) {
-                    try? await apiClient.updateEngine(EngineUpdate(commenting: !eng.commenting))
+                    _ = try? await apiClient.updateEngine(EngineUpdate(commenting: !eng.commenting))
                     await load()
                 }
                 toggleItem("Replying", isOn: eng.replying) {
-                    try? await apiClient.updateEngine(EngineUpdate(replying: !eng.replying))
+                    _ = try? await apiClient.updateEngine(EngineUpdate(replying: !eng.replying))
                     await load()
                 }
             }
